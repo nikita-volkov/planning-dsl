@@ -4,7 +4,7 @@ Tags: plan-format
 
 A planning DSL for mixed human/agent teams. `plan.yaml` — the only human-authored file — declares tasks as a dependency DAG with roles, and executors (humans and AI agents uniformly) with roles, capacity and tracker ids. Everything else is derived: a deterministic scheduler computes timing from estimates and capacity; renderers emit mermaid, an interactive HTML graph and a Gantt chart; exporters write Jira/Linear import formats; status flows back from trackers. The file is authored and refined through LLM grilling (structured interview) sessions.
 
-The design was settled in three grilling rounds on 2026-11-02; its twelve decisions live in `decisions/` and are linked below. This spec is the whole held together.
+The design was settled in three grilling rounds on 2026-11-02; its twelve decisions live in `decisions/` and are linked below. This spec is the whole held together. **Accepted by the maintainer on 2026-11-03**; the tooling language is settled in [the-tooling-is-written-in-rust](../decisions/the-tooling-is-written-in-rust.md). The scheduler's tie-break rule under capacity contention is the one design point deliberately left to the scheduler's own spec (task: [settle-the-capacity-contention-tie-break](../tasks/settle-the-capacity-contention-tie-break.md)).
 
 ## The canonical example
 
@@ -89,9 +89,4 @@ Human-team planner: open format, agents-as-tools. The wedge is grilling session 
 - [the-deadline-is-plan-level-only](../decisions/the-deadline-is-plan-level-only.md)
 - [computed-outputs-are-separate-regenerable-artifacts](../decisions/computed-outputs-are-separate-regenerable-artifacts.md)
 - [the-positioning-is-a-human-team-planner-with-agents-as-tools](../decisions/the-positioning-is-a-human-team-planner-with-agents-as-tools.md)
-
-## Open questions
-
-1. **Acceptance.** The design frontier was declared empty by the grilling of 2026-11-02, but the maintainer has not yet confirmed the shared understanding. This spec stays open until they do.
-2. **Capacity contention.** When two eligible tasks compete for one executor's limited capacity, what breaks the tie? No `priority:` field exists among the settled decisions; TaskJuggler's semantics include priorities. Either a tie-break rule (e.g. critical-path length) is adopted as a scheduler default, or a minimal authored field is added.
-3. **Implementation language.** No language or toolchain has been chosen for the validator, scheduler, renderers or sync. Not a format-design question, but it gates all four candidate tasks.
+- [the-tooling-is-written-in-rust](../decisions/the-tooling-is-written-in-rust.md)

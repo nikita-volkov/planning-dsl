@@ -12,6 +12,8 @@
 !/README.md
 !/CHANGELOG.md
 !/AGENTS.md
+!/Cargo.toml
+!/Cargo.lock
 
 # Unignore subtrees:
 !/.github/
