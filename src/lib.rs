@@ -1,8 +1,9 @@
-//! planning-dsl: the plan format toolchain — validator now, scheduler,
-//! renderers and tracker sync later. Everything computed is a separate
+//! planning-dsl: the plan format toolchain — validator and renderers now,
+//! scheduler and tracker sync later. Everything computed is a separate
 //! regenerable artifact; `plan.yaml` stays pure description.
 
 pub mod model;
+pub mod render;
 pub mod validate;
 
 pub use model::Plan;
