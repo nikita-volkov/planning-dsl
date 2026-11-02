@@ -1,0 +1,47 @@
+# plan.yaml — planning-dsl's remaining work, authored by the author-plan
+# interview (dogfood run, 2026-11-03). Structure lives here; status flows
+# back from trackers; nothing computed.
+unit: person-hours
+deadline: 2026-12-01            # proposed by the authoring session; maintainer to confirm
+
+roles:                          # the kinds of work this repo's sessions actually do
+  maintainer: accepts decisions and specs, reviews agent work, owns direction
+  designer: runs grilling rounds and writes the decisions, specs and skills they produce
+  dev: implements the Rust tooling — validator, scheduler, renderers
+
+tasks:
+  author-the-plan-by-interview:
+    status: done                # seeded: this file's own authoring session, before the plan existed
+    role: designer
+    estimate: 4
+  review-and-accept-the-plan:
+    role: maintainer
+    estimate: 2
+  settle-tie-break:
+    role: designer
+    estimate: 4                 # one light grilling round; three rounds settled twelve decisions on 2026-11-02
+  draft-scheduler-spec:
+    depends-on: [settle-tie-break]
+    role: designer
+    estimate: 8
+  implement-scheduler:
+    depends-on: [draft-scheduler-spec]
+    role: dev                   # unestimated: nothing scheduler-scale exists in this repo to scale from
+  render-mermaid-and-html-graph:
+    role: dev
+    estimate: 8                 # validator-scale or smaller; the validator was one session (b459d6c)
+  render-gantt:
+    depends-on: [implement-scheduler]
+    role: dev
+    estimate: 6
+
+executors:
+  nikita:
+    roles: [maintainer, designer]
+    availability: 0.5           # part-time on this project
+  design-agent:
+    roles: [designer]
+    concurrency: 2              # grilling/spec-drafting sessions in parallel
+  dev-agent:
+    roles: [dev]
+    concurrency: 2              # implementation sessions in parallel

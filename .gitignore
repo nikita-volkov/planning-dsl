@@ -14,6 +14,7 @@
 !/AGENTS.md
 !/Cargo.toml
 !/Cargo.lock
+!/plan.yaml
 
 # Unignore subtrees:
 !/.github/
