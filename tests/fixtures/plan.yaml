@@ -1,0 +1,45 @@
+# plan.yaml — the only human-authored file.
+# Structure lives here; status flows back from trackers; nothing computed.
+unit: person-hours            # plan-level estimate unit
+deadline: 2026-12-18          # whole-project deadline (the only date in the file)
+
+roles:                        # declared vocabulary — validated, typo-proof
+  architect: owns system design and the RFC process
+  planner: decomposes work into estimable tasks
+  dev: implements services
+  tester: implements and maintains tests
+
+tasks:
+  design-architecture:
+    status: done              # todo | in-progress | blocked | done
+    role: architect
+  plan-out-the-tasks:
+    depends-on: [design-architecture]
+    role: planner
+    estimate: 6
+  implement-services:
+    depends-on: [plan-out-the-tasks]
+    role: dev
+    estimate: 40
+  implement-tests:
+    depends-on: [plan-out-the-tasks]
+    role: tester
+    estimate: 16
+    status: blocked
+    blocked-reason: waiting on staging-environment budget approval
+
+executors:
+  anton:
+    ids: { jira: 3294783, linear: 82374392 }
+    roles: [dev]
+  nikita:
+    roles: [architect, planner]
+    availability: 0.5                  # scalar = one period, whole project
+  ivan:
+    role-weights: { dev: 2, tester: 7 }  # within-person capacity split (2/9 dev)
+    availability:                      # period-list form
+      - { from: 2026-11-01, until: 2026-12-15, fraction: 0.5 }
+      - { from: 2026-12-16, fraction: 1.0 }
+  review-agent:
+    roles: [tester]
+    concurrency: 4                     # 4 parallel slots; no calendar needed

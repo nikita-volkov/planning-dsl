@@ -26,6 +26,8 @@
 !/tasks/
 !/research/
 !/src/
+!/tests/
+!/schema/
 !/docs/
 
 # Ignore noise:

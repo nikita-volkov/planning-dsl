@@ -1,0 +1,17 @@
+unit: person-hours
+deadline: 2026-12-18
+
+roles:
+  dev: implements services
+
+tasks:
+  implement-services:
+    role: dev
+    estimate: 40
+
+executors:
+  anton:
+    roles: [dev]
+    availability:
+      - { from: 2026-11-01, until: 2026-12-15, fraction: 0.5 }
+      - { from: 2026-12-01, fraction: 1.5 }

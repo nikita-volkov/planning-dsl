@@ -1,0 +1,18 @@
+unit: person-hours
+deadline: 2026-12-18
+
+roles:
+  dev: implements services
+
+tasks:
+  implement-services:
+    depend-on: [write-tests]
+    role: dev
+    estimate: 40
+  write-tests:
+    role: dev
+    estimate: 8
+
+executors:
+  anton:
+    roles: [dev]

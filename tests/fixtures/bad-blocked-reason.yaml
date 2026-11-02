@@ -1,0 +1,15 @@
+unit: person-hours
+deadline: 2026-12-18
+
+roles:
+  dev: implements services
+
+tasks:
+  implement-services:
+    role: dev
+    estimate: 40
+    blocked-reason: waiting on nothing, actually
+
+executors:
+  anton:
+    roles: [dev]
