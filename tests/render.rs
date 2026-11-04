@@ -259,7 +259,7 @@ executors:
 // The HTML graph's layout. Both directions are pinned byte-exactly against
 // a three-task plan, hand-computed from `src/render.rs`'s constants: every
 // label fits under MIN_W=100, so each node is 100 wide; two layers, two
-// rows of which the widest is 100+60+100=260; MARGIN=24, ROW_H=56, H_GAP=60.
+// rows of which the widest is 100+90+100=290; MARGIN=24, ROW_H=84, H_GAP=90.
 
 fn direction_plan() -> Plan {
     load(
@@ -282,16 +282,16 @@ executors:
 #[test]
 fn the_lr_layout_keeps_the_flow_left_to_right() {
     // A column per layer: dependencies at x=24, the dependent at
-    // 24 + (100+60) = 184. The canvas is 24 + 2*160 = 344 wide and
-    // 24*2 + 2*56 = 160 tall; a one-node row centers vertically, its top at
-    // 24 + (2-1)*56/2 = 52. Edges leave the right edge at mid-height
+    // 24 + (100+90) = 214. The canvas is 24 + 2*190 = 404 wide and
+    // 24*2 + 2*84 = 216 tall; a one-node row centers vertically, its top at
+    // 24 + (2-1)*84/2 = 66. Edges leave the right edge at mid-height
     // (y+20), enter the left edge, control points at the horizontal
-    // midpoint (x=154).
+    // midpoint (x=169).
     let html = render::html(&direction_plan(), Direction::Lr, None);
     assert!(
         html.contains(
-            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"344\" height=\"160\" \
-             data-w=\"344\" data-h=\"160\">"
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"404\" height=\"216\" \
+             data-w=\"404\" data-h=\"216\">"
         ),
         "{html}"
     );
@@ -300,19 +300,19 @@ fn the_lr_layout_keeps_the_flow_left_to_right() {
         "{html}"
     );
     assert!(
-        html.contains("data-id=\"build\" transform=\"translate(24,80)\""),
+        html.contains("data-id=\"build\" transform=\"translate(24,108)\""),
         "{html}"
     );
     assert!(
-        html.contains("data-id=\"ship\" transform=\"translate(184,52)\""),
+        html.contains("data-id=\"ship\" transform=\"translate(214,66)\""),
         "{html}"
     );
     assert!(
-        html.contains("d=\"M 124,44 C 154,44 154,72 184,72\""),
+        html.contains("d=\"M 124,44 C 169,44 169,86 214,86\""),
         "{html}"
     );
     assert!(
-        html.contains("d=\"M 124,100 C 154,100 154,72 184,72\""),
+        html.contains("d=\"M 124,128 C 169,128 169,86 214,86\""),
         "{html}"
     );
 }
@@ -320,16 +320,16 @@ fn the_lr_layout_keeps_the_flow_left_to_right() {
 #[test]
 fn the_tb_layout_stacks_the_layers_top_down() {
     // A row per layer: the dependencies fill the top row from x=24 (the
-    // widest row, 260, is the canvas' flow width), the dependent's row
-    // centers at 24 + (260-100)/2 = 104. The canvas is 24*2+260 = 308 wide
-    // and 24*2 + 2*56 = 160 tall. Edges leave the bottom-center
+    // widest row, 290, is the canvas' flow width), the dependent's row
+    // centers at 24 + (290-100)/2 = 119. The canvas is 24*2+290 = 338 wide
+    // and 24*2 + 2*84 = 216 tall. Edges leave the bottom-center
     // (x+50, y+40), enter the top-center, control points at the vertical
-    // midpoint (y=72).
+    // midpoint (y=86).
     let html = render::html(&direction_plan(), Direction::Tb, None);
     assert!(
         html.contains(
-            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"308\" height=\"160\" \
-             data-w=\"308\" data-h=\"160\">"
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"338\" height=\"216\" \
+             data-w=\"338\" data-h=\"216\">"
         ),
         "{html}"
     );
@@ -338,19 +338,19 @@ fn the_tb_layout_stacks_the_layers_top_down() {
         "{html}"
     );
     assert!(
-        html.contains("data-id=\"build\" transform=\"translate(184,24)\""),
+        html.contains("data-id=\"build\" transform=\"translate(214,24)\""),
         "{html}"
     );
     assert!(
-        html.contains("data-id=\"ship\" transform=\"translate(104,80)\""),
+        html.contains("data-id=\"ship\" transform=\"translate(119,108)\""),
         "{html}"
     );
     assert!(
-        html.contains("d=\"M 74,64 C 74,72 154,72 154,80\""),
+        html.contains("d=\"M 74,64 C 74,86 169,86 169,108\""),
         "{html}"
     );
     assert!(
-        html.contains("d=\"M 234,64 C 234,72 154,72 154,80\""),
+        html.contains("d=\"M 264,64 C 264,86 169,86 169,108\""),
         "{html}"
     );
 }
@@ -788,8 +788,8 @@ fn the_cli_accepts_an_explicit_gantt_file() {
 fn the_html_graph_is_top_down_by_default() {
     // The default lives at the flag: the CLI writes tb without one, and its
     // bytes are exactly render::html's Direction::Tb over the schedule the
-    // CLI itself computed — the fixture's tb canvas is 412x216, its lr one
-    // 720x160.
+    // CLI itself computed — the fixture's tb canvas is 442x300, its lr one
+    // 810x216.
     let plan = load(PLAN).expect("parses");
     let artifact = schedule(&plan).expect("schedules");
     let dir = tempdir("default-direction");
@@ -798,7 +798,7 @@ fn the_html_graph_is_top_down_by_default() {
     let written = std::fs::read_to_string(dir.join("plan.html")).expect("the html written");
     assert_eq!(written, render::html(&plan, Direction::Tb, Some(&artifact)));
     assert!(
-        written.contains("width=\"412\" height=\"216\""),
+        written.contains("width=\"442\" height=\"300\""),
         "{written}"
     );
 
@@ -808,7 +808,7 @@ fn the_html_graph_is_top_down_by_default() {
     let written = std::fs::read_to_string(dir.join("plan.html")).expect("the html written");
     assert_eq!(written, render::html(&plan, Direction::Lr, Some(&artifact)));
     assert!(
-        written.contains("width=\"720\" height=\"160\""),
+        written.contains("width=\"810\" height=\"216\""),
         "{written}"
     );
 }

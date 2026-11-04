@@ -570,14 +570,14 @@ pub fn html(plan: &Plan, direction: Direction, schedule: Option<&Schedule>) -> S
     // left-to-right, a column per layer — dependencies on the left,
     // dependents on the right. Rows keep declaration order; each row is
     // centered across the flow.
-    const ROW_H: usize = 56;
+    const ROW_H: usize = 84; // NODE_H + two 22px half-gaps: rows breathe
     const NODE_H: usize = 40; // two text lines: the name, and role · estimate
     const NAME_Y: usize = 13; // the 12px name line, centered in the top half
     const SUB_Y: usize = 28; // the 10px role·estimate line, in the bottom half
     const CHAR_W: usize = 8; // 12px monospace advances ~7.2px; slack kept
     const PAD_X: usize = 10;
     const MIN_W: usize = 100;
-    const H_GAP: usize = 60;
+    const H_GAP: usize = 90;
     const MARGIN: usize = 24;
 
     // The second label line: `role · estimate`, the estimate written bare
