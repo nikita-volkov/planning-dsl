@@ -29,8 +29,9 @@ tasks:
     role: designer
     estimate: 8
   implement-scheduler:
+    status: done                # 2026-11-04 (3be8767): the daily pass per the accepted spec
     depends-on: [draft-scheduler-spec]
-    role: dev                   # unestimated: nothing scheduler-scale exists in this repo to scale from
+    role: dev
   render-mermaid-and-html-graph:
     status: done                # 2026-11-03
     role: dev

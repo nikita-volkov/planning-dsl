@@ -449,11 +449,15 @@ executors:
 }
 
 #[test]
-fn the_repo_plan_refuses_until_it_carries_estimates() {
-    // Dogfood: this repo's own plan.yaml gates on its one unestimated task —
-    // the refusal is the maturity output, and it names this very task.
+fn the_repo_plan_schedules_its_own_remaining_work() {
+    // Dogfood: the repo's plan once refused, naming `implement-scheduler` —
+    // the estimate gate pointing at the task that built the gate. Now done,
+    // the plan schedules: one open task, `render-gantt`, straight onto the
+    // dev-agent (calendar all, 8 h/day, 6 h estimate — one day).
     let yaml = include_str!("../plan.yaml");
     let plan = load(yaml).expect("the repo plan parses");
-    let err = schedule(&plan).expect_err("refused");
-    assert!(err.contains("\n  - implement-scheduler"), "{err}");
+    let out = planning_dsl::schedule::to_yaml(&schedule(&plan).expect("schedules"));
+    assert!(out.contains("plan-end: 2026-11-03"), "{out}");
+    assert!(out.contains("  render-gantt:\n    executor: dev-agent"), "{out}");
+    assert!(out.contains("    end: 2026-11-03\n    active-days: 1"), "{out}");
 }
