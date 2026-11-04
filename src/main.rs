@@ -13,6 +13,9 @@ commands:
   render <plan.yaml>     write the derived renders beside the plan
       --mmd <file>       the mermaid flowchart (default: <stem>.mmd)
       --html <file>      the interactive graph (default: <stem>.html)
+      --gantt [<file>]   the mermaid gantt (default: <stem>.gantt.mmd);
+                         opt-in: it runs the scheduler, so the plan needs a
+                         start: and full estimates — a refusal writes nothing
 ";
 
 fn main() -> ExitCode {
@@ -155,18 +158,31 @@ fn render(args: &[String]) -> ExitCode {
     let mut plan_path = None;
     let mut mmd_path = None;
     let mut html_path = None;
-    let mut flags = args.iter();
+    // Outer `Some` = the gantt was requested; inner = the file was named.
+    let mut gantt_path: Option<Option<&str>> = None;
+    let mut flags = args.iter().peekable();
     while let Some(arg) = flags.next() {
         match arg.as_str() {
-            "--mmd" | "--html" => {
-                let Some(target) = flags.next() else {
-                    eprintln!("error: {arg} needs a file\n{USAGE}");
-                    return ExitCode::from(2);
+            "--mmd" | "--html" | "--gantt" => {
+                // A following non-flag token is the file name. `--gantt` may
+                // also stand alone: its presence, not a name, is the
+                // request — unnamed, it takes the default file.
+                let named = match flags.peek() {
+                    Some(next) if !next.starts_with('-') => flags.next(),
+                    _ => None,
                 };
-                if arg == "--mmd" {
-                    mmd_path = Some(target);
-                } else {
-                    html_path = Some(target);
+                let target = match named {
+                    Some(v) => Some(v.as_str()),
+                    None if arg == "--gantt" => None,
+                    None => {
+                        eprintln!("error: {arg} needs a file\n{USAGE}");
+                        return ExitCode::from(2);
+                    }
+                };
+                match arg.as_str() {
+                    "--mmd" => mmd_path = target,
+                    "--html" => html_path = target,
+                    _ => gantt_path = Some(target),
                 }
             }
             s if s.starts_with('-') => {
@@ -213,6 +229,7 @@ fn render(args: &[String]) -> ExitCode {
     }
     let default_mmd = Path::new(path).with_extension("mmd");
     let default_html = Path::new(path).with_extension("html");
+    let default_gantt = Path::new(path).with_extension("gantt.mmd");
     let mmd_out: &Path = match mmd_path {
         Some(p) => Path::new(p),
         None => default_mmd.as_path(),
@@ -221,19 +238,37 @@ fn render(args: &[String]) -> ExitCode {
         Some(p) => Path::new(p),
         None => default_html.as_path(),
     };
-    for (out, content) in [
+    // Everything is computed before anything is written: the gantt runs the
+    // scheduler, and a refusal must leave no half-drawn set behind.
+    let mut outputs: Vec<(&Path, String)> = vec![
         (mmd_out, planning_dsl::render::mermaid(&plan)),
         (html_out, planning_dsl::render::html(&plan)),
-    ] {
+    ];
+    if let Some(named_gantt) = gantt_path {
+        let artifact = match planning_dsl::schedule(&plan) {
+            Ok(artifact) => artifact,
+            Err(refusal) => {
+                eprintln!("{refusal}");
+                return ExitCode::FAILURE;
+            }
+        };
+        let gantt_out: &Path = match named_gantt {
+            Some(p) => Path::new(p),
+            None => default_gantt.as_path(),
+        };
+        outputs.push((gantt_out, planning_dsl::render::gantt(&artifact)));
+    }
+    for (out, content) in &outputs {
         if let Err(e) = std::fs::write(out, content) {
             eprintln!("error: cannot write {}: {e}", out.display());
             return ExitCode::from(2);
         }
     }
-    println!(
-        "{path}: wrote {}, {}",
-        mmd_out.display(),
-        html_out.display()
-    );
+    let written = outputs
+        .iter()
+        .map(|(out, _)| out.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    println!("{path}: wrote {written}");
     ExitCode::SUCCESS
 }

@@ -1,17 +1,21 @@
-//! Renderers: derived artifacts over the typed plan model — a mermaid
-//! flowchart of the task dependency DAG and a self-contained interactive HTML
-//! graph. Both are pure functions of the plan: same plan in, byte-identical
-//! file out. The determinism is carried by the model's declaration order
-//! (the `DeclarationMap`) and by canonicalizing the edge set, never by
-//! hashing or sorting at the end.
+//! Renderers: derived artifacts — a mermaid flowchart of the task dependency
+//! DAG, a self-contained interactive HTML graph, and a mermaid gantt chart of
+//! the schedule. All are pure functions: same input in, byte-identical file
+//! out. The flowchart and HTML are functions of the plan; the gantt is a
+//! function of the schedule artifact alone (`specs/scheduler.md`: renderers
+//! consume it, nothing recomputes it) — it never re-derives a date, a
+//! capacity or an assignment. The determinism is carried by the model's
+//! declaration order (the `DeclarationMap`) and by canonicalizing the edge
+//! set, never by hashing or sorting at the end.
 //!
-//! Renderers assume a valid plan (the CLI gates on `validate` first);
-//! defensively, a `depends-on` naming no task is skipped, never rendered as
-//! a ghost node.
+//! Renderers assume a valid input (the CLI gates on `validate`, and the
+//! gantt's CLI path schedules first); defensively, a `depends-on` naming no
+//! task is skipped, never rendered as a ghost node.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::model::Plan;
+use crate::schedule::Schedule;
 
 /// The dependency edges, canonicalized: `(dependency, dependent)` pairs —
 /// what must come first on the left, what waits for it on the right —
@@ -96,6 +100,55 @@ fn escape(s: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+}
+
+/// The mermaid gantt chart, drawn from the schedule artifact and nothing
+/// else: one bar per task carrying dates, grouped into `section`s per
+/// assigned executor. The artifact does not carry the plan's executor
+/// declaration order, so sections follow the executor's first appearance
+/// along the artifact's task declaration order; within a section, tasks keep
+/// declaration order. Done tasks carry no dates in the artifact — they take
+/// no bar and no section. Critical-path tasks are tagged `crit`. There are
+/// no `excludes` lines: the artifact carries no calendar, and inventing one
+/// here would recompute the pauses the scheduler already folded into the
+/// dates.
+pub fn gantt(schedule: &Schedule) -> String {
+    let mut out = String::from("gantt\n    dateFormat YYYY-MM-DD\n    axisFormat %Y-%m-%d\n");
+    // Executors in first-appearance order; `None` (a dated task the artifact
+    // leaves unassigned — the scheduler never produces one) draws its tasks
+    // before any section, in mermaid's implicit first group.
+    let mut executors: Vec<Option<&str>> = Vec::new();
+    for line in schedule.tasks.values() {
+        let executor = line.executor.as_deref();
+        if !executors.contains(&executor) {
+            executors.push(executor);
+        }
+    }
+    for executor in executors {
+        if let Some(name) = executor {
+            out.push_str(&format!("    section {}\n", escape(name)));
+        }
+        for (task, line) in &schedule.tasks {
+            if line.executor.as_deref() != executor {
+                continue;
+            }
+            if let (Some(start), Some(end)) = (line.start, line.end) {
+                let crit = if schedule.critical_path.iter().any(|c| c == task) {
+                    "crit, "
+                } else {
+                    ""
+                };
+                out.push_str(&format!(
+                    "    {} :{}{}, {}\n",
+                    escape(task),
+                    crit,
+                    start,
+                    end
+                ));
+            }
+        }
+    }
+    out
 }
 
 /// The interactive HTML graph: one self-contained file — the SVG geometry is

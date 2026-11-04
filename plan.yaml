@@ -37,6 +37,7 @@ tasks:
     role: dev
     estimate: 8                 # validator-scale or smaller; the validator was one session (b459d6c)
   render-gantt:
+    status: done                # 2026-11-04: the gantt drawn from the schedule artifact
     depends-on: [implement-scheduler]
     role: dev
     estimate: 6

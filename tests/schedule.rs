@@ -449,21 +449,18 @@ executors:
 }
 
 #[test]
-fn the_repo_plan_schedules_its_own_remaining_work() {
+fn the_repo_plan_is_all_done_and_takes_no_dates() {
     // Dogfood: the repo's plan once refused, naming `implement-scheduler` —
-    // the estimate gate pointing at the task that built the gate. Now done,
-    // the plan schedules: one open task, `render-gantt`, straight onto the
-    // dev-agent (calendar all, 8 h/day, 6 h estimate — one day).
+    // the estimate gate pointing at the task that built the gate — then
+    // scheduled its one open task, `render-gantt`, onto the dev-agent. That
+    // work is in git history now: every task is done, so the artifact
+    // confirms completion and takes no dates (the all-done autodecision,
+    // on this repo's own plan).
     let yaml = include_str!("../plan.yaml");
     let plan = load(yaml).expect("the repo plan parses");
     let out = planning_dsl::schedule::to_yaml(&schedule(&plan).expect("schedules"));
-    assert!(out.contains("plan-end: 2026-11-03"), "{out}");
-    assert!(
-        out.contains("  render-gantt:\n    executor: dev-agent"),
-        "{out}"
-    );
-    assert!(
-        out.contains("    end: 2026-11-03\n    active-days: 1"),
-        "{out}"
-    );
+    assert!(!out.contains("plan-end"), "{out}");
+    assert!(!out.contains("slippage"), "{out}");
+    assert!(out.contains("critical-path: []"), "{out}");
+    assert!(out.contains("  render-gantt:\n    status: done\n"), "{out}");
 }
