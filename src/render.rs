@@ -1,9 +1,10 @@
 //! Renderers: derived artifacts — a mermaid flowchart of the task dependency
 //! DAG, a self-contained interactive HTML graph, and a mermaid gantt chart of
 //! the schedule. All are pure functions: same input in, byte-identical file
-//! out. The flowchart and HTML are functions of the plan; the gantt is a
-//! function of the schedule artifact alone (`specs/scheduler.md`: renderers
-//! consume it, nothing recomputes it) — it never re-derives a date, a
+//! out. The flowchart is a function of the plan; the gantt is a function of
+//! the schedule artifact alone, and the HTML is a function of the plan plus
+//! the artifact's critical path when handed one (`specs/scheduler.md`:
+//! renderers consume it, nothing recomputes it) — none re-derives a date, a
 //! capacity or an assignment. The determinism is carried by the model's
 //! declaration order (the `DeclarationMap`) and by canonicalizing the edge
 //! set, never by hashing or sorting at the end.
@@ -172,9 +173,34 @@ pub enum Direction {
 /// a second label line, `role · estimate`; done tasks are muted; a corner
 /// legend states the estimate unit. No CDN, no network, no layout library;
 /// it opens offline.
-pub fn html(plan: &Plan, direction: Direction) -> String {
+///
+/// The schedule artifact, when handed one, marks the critical path: nodes
+/// named in the artifact's `critical-path` chain wear `crit`, and an edge
+/// wears `crit` exactly when it is a consecutive pair of the chain — the
+/// chain is emitted dependency-first and the scheduler steps only along
+/// real dependencies, so consecutive pairs are real edges by construction;
+/// no heuristic. `None` marks nothing. Done tasks are never on the chain
+/// (the scheduler leaves them off), so done muting and `crit` never
+/// collide.
+pub fn html(plan: &Plan, direction: Direction, schedule: Option<&Schedule>) -> String {
     let tasks = &plan.tasks;
     let edges = edges(plan);
+
+    // The critical backbone, read off the artifact: the chain's nodes, and
+    // its consecutive pairs as the crit edges (the chain runs
+    // dependency-first, so a pair runs dependency → dependent).
+    let crit_nodes: BTreeSet<&str> = match schedule {
+        Some(s) => s.critical_path.iter().map(String::as_str).collect(),
+        None => BTreeSet::new(),
+    };
+    let crit_edges: BTreeSet<(&str, &str)> = match schedule {
+        Some(s) => s
+            .critical_path
+            .windows(2)
+            .map(|pair| (pair[0].as_str(), pair[1].as_str()))
+            .collect(),
+        None => BTreeSet::new(),
+    };
 
     // Layer = longest path from a root, by bounded fixed-point iteration. A
     // plan that renders is acyclic so this converges; the bound keeps a
@@ -314,8 +340,13 @@ pub fn html(plan: &Plan, direction: Direction) -> String {
                 format!("M {sx},{sy} C {sx},{my} {ex},{my} {ex},{ey}")
             }
         };
+        let class = if crit_edges.contains(&(from, to)) {
+            "edge crit"
+        } else {
+            "edge"
+        };
         svg.push_str(&format!(
-            "<path class=\"edge\" data-from=\"{f}\" data-to=\"{t}\" marker-end=\"url(#arrow)\" \
+            "<path class=\"{class}\" data-from=\"{f}\" data-to=\"{t}\" marker-end=\"url(#arrow)\" \
              d=\"{d}\"/>\n",
             f = escape(from),
             t = escape(to),
@@ -327,7 +358,15 @@ pub fn html(plan: &Plan, direction: Direction) -> String {
         let (x, y) = pos[name.as_str()];
         let label = escape(name);
         let sub = escape(&sub_label(task));
-        let class = if done(task) { "node done" } else { "node" };
+        // Done is never on the chain (the scheduler leaves it off), so the
+        // two branches cannot collide.
+        let class = if crit_nodes.contains(name.as_str()) {
+            "node crit"
+        } else if done(task) {
+            "node done"
+        } else {
+            "node"
+        };
         svg.push_str(&format!(
             "<g class=\"{class}\" data-id=\"{label}\" transform=\"translate({x},{y})\">\
              <rect width=\"{w}\" height=\"{nh}\" rx=\"6\"/>\
@@ -345,13 +384,17 @@ pub fn html(plan: &Plan, direction: Direction) -> String {
 
     // The corner legend, one div per line so a future key joins as one more
     // push: the estimate unit, always; the key to the muted look, when
-    // anything is muted.
+    // anything is muted; the key to the red backbone, when a chain was
+    // rendered.
     let mut legend = format!(
         "<div id=\"legend\">\n<div>unit: {}</div>\n",
         escape(&plan.unit)
     );
     if tasks.values().any(|t| done(t)) {
         legend.push_str("<div>grey: done</div>\n");
+    }
+    if schedule.is_some_and(|s| !s.critical_path.is_empty()) {
+        legend.push_str("<div>red: critical path</div>\n");
     }
     legend.push_str("</div>\n");
 
@@ -380,7 +423,11 @@ svg:active { cursor: grabbing; }
 .node.done rect { fill: #f1f2ee; stroke: #c4cad2; }
 .node.done text { fill: #9aa4b2; }
 .edge { stroke: #9aa4b2; stroke-width: 1.5; fill: none; }
+.node.crit rect { stroke: #b91c1c; }
+.node.crit text { fill: #b91c1c; }
+.edge.crit { stroke: #b91c1c; }
 svg.dim .node, svg.dim .edge { opacity: 0.15; }
+svg.dim .node.crit, svg.dim .edge.crit { opacity: 0.4; }
 svg.dim .node.hot, svg.dim .edge.hot { opacity: 1; }
 svg.dim .node.hot rect { fill: #fff3e0; stroke: #b45309; }
 svg.dim .node.hot text { fill: #7c3a00; }

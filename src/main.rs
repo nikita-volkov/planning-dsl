@@ -12,7 +12,9 @@ commands:
   emit-schema            print the JSON Schema for plan.yaml
   render <plan.yaml>     write the derived renders beside the plan
       --mmd <file>       the mermaid flowchart (default: <stem>.mmd)
-      --html <file>      the interactive graph (default: <stem>.html)
+      --html <file>      the interactive graph (default: <stem>.html); on a
+                         plan that schedules it marks the critical path — a
+                         scheduling refusal warns, the graph still writes
       --direction <dir>  graph layout: tb (top-down, the default) or lr
                          (left-to-right)
       --gantt [<file>]   the mermaid gantt (default: <stem>.gantt.mmd);
@@ -256,25 +258,42 @@ fn render(args: &[String]) -> ExitCode {
         Some(p) => Path::new(p),
         None => default_html.as_path(),
     };
-    // Everything is computed before anything is written: the gantt runs the
-    // scheduler, and a refusal must leave no half-drawn set behind.
-    let mut outputs: Vec<(&Path, String)> = vec![
-        (mmd_out, planning_dsl::render::mermaid(&plan)),
-        (html_out, planning_dsl::render::html(&plan, direction)),
-    ];
-    if let Some(named_gantt) = gantt_path {
-        let artifact = match planning_dsl::schedule(&plan) {
-            Ok(artifact) => artifact,
-            Err(refusal) => {
+    // The schedule, once, up front — both consumers read the one artifact.
+    // Best-effort for the html graph: the critical path is an enhancement,
+    // and the graph is most useful on early drafts that cannot schedule
+    // yet, so a refusal warns and the graph writes unmarked. The gantt
+    // keeps its loud gate: a refusal aborts with nothing written —
+    // everything is computed before anything is written.
+    let scheduled = planning_dsl::schedule(&plan);
+    let artifact = match scheduled.as_ref() {
+        Ok(artifact) => Some(artifact),
+        Err(refusal) => {
+            if gantt_path.is_some() {
                 eprintln!("{refusal}");
                 return ExitCode::FAILURE;
             }
-        };
+            // The refusal leads with `error: ` when it has a lead line of
+            // its own; downgraded to a warning, the contradiction of
+            // `warning: error: …` is not worth keeping.
+            let lead = refusal.strip_prefix("error: ").unwrap_or(refusal);
+            eprintln!("warning: {lead}");
+            None
+        }
+    };
+    let mut outputs: Vec<(&Path, String)> = vec![
+        (mmd_out, planning_dsl::render::mermaid(&plan)),
+        (
+            html_out,
+            planning_dsl::render::html(&plan, direction, artifact),
+        ),
+    ];
+    if let Some(named_gantt) = gantt_path {
         let gantt_out: &Path = match named_gantt {
             Some(p) => Path::new(p),
             None => default_gantt.as_path(),
         };
-        outputs.push((gantt_out, planning_dsl::render::gantt(&artifact)));
+        let artifact = artifact.expect("a gantt request gated on the schedule above");
+        outputs.push((gantt_out, planning_dsl::render::gantt(artifact)));
     }
     for (out, content) in &outputs {
         if let Err(e) = std::fs::write(out, content) {
