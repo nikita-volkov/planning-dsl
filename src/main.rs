@@ -13,6 +13,8 @@ commands:
   render <plan.yaml>     write the derived renders beside the plan
       --mmd <file>       the mermaid flowchart (default: <stem>.mmd)
       --html <file>      the interactive graph (default: <stem>.html)
+      --direction <dir>  graph layout: tb (top-down, the default) or lr
+                         (left-to-right)
       --gantt [<file>]   the mermaid gantt (default: <stem>.gantt.mmd);
                          opt-in: it runs the scheduler, so the plan needs a
                          start: and full estimates — a refusal writes nothing
@@ -158,6 +160,8 @@ fn render(args: &[String]) -> ExitCode {
     let mut plan_path = None;
     let mut mmd_path = None;
     let mut html_path = None;
+    // The html graph's flow direction; top-down unless asked otherwise.
+    let mut direction = planning_dsl::render::Direction::Tb;
     // Outer `Some` = the gantt was requested; inner = the file was named.
     let mut gantt_path: Option<Option<&str>> = None;
     let mut flags = args.iter().peekable();
@@ -184,6 +188,20 @@ fn render(args: &[String]) -> ExitCode {
                     "--html" => html_path = target,
                     _ => gantt_path = Some(target),
                 }
+            }
+            "--direction" => {
+                let Some(value) = flags.next() else {
+                    eprintln!("error: --direction needs tb or lr\n{USAGE}");
+                    return ExitCode::from(2);
+                };
+                direction = match value.as_str() {
+                    "tb" => planning_dsl::render::Direction::Tb,
+                    "lr" => planning_dsl::render::Direction::Lr,
+                    other => {
+                        eprintln!("error: --direction is tb or lr, not {other}\n{USAGE}");
+                        return ExitCode::from(2);
+                    }
+                };
             }
             s if s.starts_with('-') => {
                 eprintln!("error: unknown flag {s}\n{USAGE}");
@@ -242,7 +260,7 @@ fn render(args: &[String]) -> ExitCode {
     // scheduler, and a refusal must leave no half-drawn set behind.
     let mut outputs: Vec<(&Path, String)> = vec![
         (mmd_out, planning_dsl::render::mermaid(&plan)),
-        (html_out, planning_dsl::render::html(&plan)),
+        (html_out, planning_dsl::render::html(&plan, direction)),
     ];
     if let Some(named_gantt) = gantt_path {
         let artifact = match planning_dsl::schedule(&plan) {

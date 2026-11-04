@@ -14,13 +14,13 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::model::Plan;
+use crate::model::{Plan, Status, Task};
 use crate::schedule::Schedule;
 
 /// The dependency edges, canonicalized: `(dependency, dependent)` pairs —
-/// what must come first on the left, what waits for it on the right —
-/// sorted, deduplicated, and stripped of dependencies that name no task.
-/// Arrows follow execution order, the community convention.
+/// what must come first, what waits for it — sorted, deduplicated, and
+/// stripped of dependencies that name no task. Arrows follow execution
+/// order, the community convention.
 pub fn edges(plan: &Plan) -> BTreeSet<(&str, &str)> {
     let mut edges = BTreeSet::new();
     for (name, task) in &plan.tasks {
@@ -151,11 +151,28 @@ pub fn gantt(schedule: &Schedule) -> String {
     out
 }
 
-/// The interactive HTML graph: one self-contained file — the SVG geometry is
-/// computed here, the inline JS adds hover highlighting (a task, its
-/// dependency edges and its neighbours), pan, wheel zoom and fit-on-load.
-/// No CDN, no network, no layout library; it opens offline.
-pub fn html(plan: &Plan) -> String {
+/// The flow direction of the HTML graph's layout: `Tb` stacks one row per
+/// layer, dependencies at the top and dependents below; `Lr` keeps the
+/// original left-to-right columns. A property of the view, like `--gantt`
+/// is a property of the output set — never of the plan
+/// (`decisions/the-html-graph-renders-top-down-by-default.md`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    /// Top-down: the default.
+    Tb,
+    /// Left-to-right.
+    Lr,
+}
+
+/// The interactive HTML graph: one self-contained file. The SVG geometry is
+/// computed here — one row or column per layer along the flow
+/// (`Direction`), dependencies upstream of dependents — and the inline JS
+/// adds hover highlighting (a task, its dependency edges and its
+/// neighbours), click-to-pin, pan, wheel zoom and fit-on-load. Nodes carry
+/// a second label line, `role · estimate`; done tasks are muted; a corner
+/// legend states the estimate unit. No CDN, no network, no layout library;
+/// it opens offline.
+pub fn html(plan: &Plan, direction: Direction) -> String {
     let tasks = &plan.tasks;
     let edges = edges(plan);
 
@@ -183,41 +200,83 @@ pub fn html(plan: &Plan) -> String {
         }
     }
 
-    // Geometry, in integers, so the bytes cannot depend on float formatting:
-    // a column per layer (dependencies on the left, dependents on the right),
-    // rows in declaration order, columns centered vertically.
-    const ROW_H: usize = 44;
-    const NODE_H: usize = 28;
+    // Geometry, in integers, so the bytes cannot depend on float
+    // formatting. The layers flow along the direction: top-down, a row per
+    // layer stacked vertically — dependencies at the top, dependents below;
+    // left-to-right, a column per layer — dependencies on the left,
+    // dependents on the right. Rows keep declaration order; each row is
+    // centered across the flow.
+    const ROW_H: usize = 56;
+    const NODE_H: usize = 40; // two text lines: the name, and role · estimate
+    const NAME_Y: usize = 13; // the 12px name line, centered in the top half
+    const SUB_Y: usize = 28; // the 10px role·estimate line, in the bottom half
     const CHAR_W: usize = 8; // 12px monospace advances ~7.2px; slack kept
     const PAD_X: usize = 10;
     const MIN_W: usize = 100;
     const H_GAP: usize = 60;
     const MARGIN: usize = 24;
 
-    let width = |n: &str| (n.chars().count() * CHAR_W + 2 * PAD_X).max(MIN_W);
+    // The second label line: `role · estimate`, the estimate written bare
+    // ("6", "4.5"); without one, just the role. The unit is stated once, in
+    // the corner legend.
+    let sub_label = |t: &Task| match t.estimate {
+        Some(e) => format!("{} · {}", t.role, e),
+        None => t.role.clone(),
+    };
+    // The node's width follows the longer of its two label lines.
+    let width = |name: &str, t: &Task| {
+        let line_w = |s: &str| s.chars().count() * CHAR_W + 2 * PAD_X;
+        line_w(name).max(line_w(&sub_label(t))).max(MIN_W)
+    };
+
     let max_layer = layer.values().copied().max().unwrap_or(0);
     let mut rows: Vec<Vec<&str>> = vec![Vec::new(); max_layer + 1];
     for name in tasks.keys() {
         rows[layer[name.as_str()]].push(name.as_str());
     }
     let max_rows = rows.iter().map(Vec::len).max().unwrap_or(0);
-    let col_w = rows
-        .iter()
-        .flatten()
-        .map(|n| width(n))
-        .max()
-        .unwrap_or(MIN_W)
-        + H_GAP;
-    let canvas_w = MARGIN + (max_layer + 1) * col_w;
-    let canvas_h = MARGIN * 2 + max_rows * ROW_H;
 
     let mut pos: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
-    for (l, col) in rows.iter().enumerate() {
-        let top = MARGIN + (max_rows - col.len()) * ROW_H / 2;
-        for (i, &name) in col.iter().enumerate() {
-            pos.insert(name, (MARGIN + l * col_w, top + i * ROW_H));
+    let (canvas_w, canvas_h) = match direction {
+        Direction::Lr => {
+            let col_w = rows
+                .iter()
+                .flatten()
+                .copied()
+                .map(|n| width(n, &tasks[n]))
+                .max()
+                .unwrap_or(MIN_W)
+                + H_GAP;
+            for (l, col) in rows.iter().enumerate() {
+                let top = MARGIN + (max_rows - col.len()) * ROW_H / 2;
+                for (i, &name) in col.iter().enumerate() {
+                    pos.insert(name, (MARGIN + l * col_w, top + i * ROW_H));
+                }
+            }
+            (
+                MARGIN + (max_layer + 1) * col_w,
+                MARGIN * 2 + max_rows * ROW_H,
+            )
         }
-    }
+        Direction::Tb => {
+            // The canvas width fits the widest layer; every row is centered
+            // horizontally within it.
+            let row_w = |col: &[&str]| -> usize {
+                col.iter().map(|n| width(n, &tasks[*n])).sum::<usize>()
+                    + col.len().saturating_sub(1) * H_GAP
+            };
+            let flow_w = rows.iter().map(|c| row_w(c)).max().unwrap_or(0);
+            for (l, col) in rows.iter().enumerate() {
+                let mut x = MARGIN + (flow_w - row_w(col)) / 2;
+                let top = MARGIN + l * ROW_H;
+                for &name in col {
+                    pos.insert(name, (x, top));
+                    x += width(name, &tasks[name]) + H_GAP;
+                }
+            }
+            (MARGIN * 2 + flow_w, MARGIN * 2 + (max_layer + 1) * ROW_H)
+        }
+    };
 
     let mut svg = String::new();
     svg.push_str(&format!(
@@ -232,38 +291,72 @@ pub fn html(plan: &Plan) -> String {
     );
     svg.push_str("<g id=\"view\">\n");
 
-    // Edges first, so nodes paint over them; an edge leaves the dependency's
-    // right edge and enters the dependent's left edge, arrowhead at the
-    // dependent — arrows follow execution order, left to right.
+    // Edges first, so nodes paint over them; an edge leaves the dependency
+    // where the flow exits it and enters the dependent where the flow
+    // arrives — bottom-center to top-center in tb, right edge to left edge
+    // in lr — arrowhead at the dependent: arrows follow execution order.
+    // The bezier's control points sit on the midpoint of the axis the flow
+    // runs along.
     for &(from, to) in &edges {
         let (fx, fy) = pos[from];
         let (tx, ty) = pos[to];
-        let (sx, sy) = (fx + width(from), fy + NODE_H / 2);
-        let (ex, ey) = (tx, ty + NODE_H / 2);
-        let mx = (sx + ex) / 2;
+        let d = match direction {
+            Direction::Lr => {
+                let (sx, sy) = (fx + width(from, &tasks[from]), fy + NODE_H / 2);
+                let (ex, ey) = (tx, ty + NODE_H / 2);
+                let mx = (sx + ex) / 2;
+                format!("M {sx},{sy} C {mx},{sy} {mx},{ey} {ex},{ey}")
+            }
+            Direction::Tb => {
+                let (sx, sy) = (fx + width(from, &tasks[from]) / 2, fy + NODE_H);
+                let (ex, ey) = (tx + width(to, &tasks[to]) / 2, ty);
+                let my = (sy + ey) / 2;
+                format!("M {sx},{sy} C {sx},{my} {ex},{my} {ex},{ey}")
+            }
+        };
         svg.push_str(&format!(
             "<path class=\"edge\" data-from=\"{f}\" data-to=\"{t}\" marker-end=\"url(#arrow)\" \
-             d=\"M {sx},{sy} C {mx},{sy} {mx},{ey} {ex},{ey}\"/>\n",
+             d=\"{d}\"/>\n",
             f = escape(from),
             t = escape(to),
         ));
     }
+    let done = |t: &Task| t.status == Some(Status::Done);
     for name in tasks.keys() {
+        let task = &tasks[name.as_str()];
         let (x, y) = pos[name.as_str()];
         let label = escape(name);
+        let sub = escape(&sub_label(task));
+        let class = if done(task) { "node done" } else { "node" };
         svg.push_str(&format!(
-            "<g class=\"node\" data-id=\"{label}\" transform=\"translate({x},{y})\">\
+            "<g class=\"{class}\" data-id=\"{label}\" transform=\"translate({x},{y})\">\
              <rect width=\"{w}\" height=\"{nh}\" rx=\"6\"/>\
-             <text x=\"{px}\" y=\"{ny}\">{label}</text><title>{label}</title></g>\n",
-            w = width(name),
+             <text x=\"{px}\" y=\"{ny}\">{label}</text>\
+             <text class=\"sub\" x=\"{px}\" y=\"{sy}\">{sub}</text>\
+             <title>{label}</title></g>\n",
+            w = width(name, task),
             nh = NODE_H,
             px = PAD_X,
-            ny = NODE_H / 2,
+            ny = NAME_Y,
+            sy = SUB_Y,
         ));
     }
     svg.push_str("</g>\n</svg>\n");
 
+    // The corner legend, one div per line so a future key joins as one more
+    // push: the estimate unit, always; the key to the muted look, when
+    // anything is muted.
+    let mut legend = format!(
+        "<div id=\"legend\">\n<div>unit: {}</div>\n",
+        escape(&plan.unit)
+    );
+    if tasks.values().any(|t| done(t)) {
+        legend.push_str("<div>grey: done</div>\n");
+    }
+    legend.push_str("</div>\n");
+
     let mut out = String::from(HTML_HEAD);
+    out.push_str(&legend);
     out.push_str(&svg);
     out.push_str(HTML_TAIL);
     out
@@ -279,9 +372,13 @@ html, body { margin: 0; height: 100%; background: #fafaf7; }
 body { font-family: ui-monospace, Menlo, Consolas, monospace; overflow: hidden; }
 svg { width: 100vw; height: 100vh; display: block; cursor: grab; }
 svg:active { cursor: grabbing; }
+#legend { position: fixed; top: 12px; right: 16px; padding: 6px 10px; font-size: 11px; line-height: 1.7; color: #5b6470; background: rgba(255,255,255,0.9); border: 1px solid #c4cad2; border-radius: 6px; pointer-events: none; }
 .node { cursor: pointer; }
 .node rect { fill: #ffffff; stroke: #5b6470; stroke-width: 1.5; }
 .node text { fill: #1c2430; font-size: 12px; dominant-baseline: central; }
+.node text.sub { fill: #9aa4b2; font-size: 10px; }
+.node.done rect { fill: #f1f2ee; stroke: #c4cad2; }
+.node.done text { fill: #9aa4b2; }
 .edge { stroke: #9aa4b2; stroke-width: 1.5; fill: none; }
 svg.dim .node, svg.dim .edge { opacity: 0.15; }
 svg.dim .node.hot, svg.dim .edge.hot { opacity: 1; }
@@ -301,6 +398,7 @@ const HTML_TAIL: &str = r#"<script>
   var nodes = Array.prototype.slice.call(svg.querySelectorAll('.node'));
   var edges = Array.prototype.slice.call(svg.querySelectorAll('.edge'));
   var tx = 0, ty = 0, k = 1;
+  var pinned = null, down = null;
 
   function apply() {
     view.setAttribute('transform', 'translate(' + tx + ',' + ty + ') scale(' + k + ')');
@@ -312,27 +410,37 @@ const HTML_TAIL: &str = r#"<script>
     ty = (window.innerHeight - H * k) / 2;
     apply();
   }
+  function setHot(id) {
+    svg.classList.add('dim');
+    nodes.forEach(function (m) {
+      if (m.getAttribute('data-id') === id) m.classList.add('hot');
+    });
+    edges.forEach(function (e) {
+      var f = e.getAttribute('data-from'), t = e.getAttribute('data-to');
+      if (f !== id && t !== id) return;
+      e.classList.add('hot');
+      var other = f === id ? t : f;
+      nodes.forEach(function (m) {
+        if (m.getAttribute('data-id') === other) m.classList.add('hot');
+      });
+    });
+  }
+  function clearHot() {
+    svg.classList.remove('dim');
+    nodes.forEach(function (m) { m.classList.remove('hot'); });
+    edges.forEach(function (e) { e.classList.remove('hot'); });
+  }
+  // The pin: a click leaves a node's highlight standing after mouseleave.
+  // Hovering overrides it while over a node; leaving restores it.
+  function applyPin() {
+    clearHot();
+    if (pinned !== null) setHot(pinned);
+  }
 
   nodes.forEach(function (node) {
     var id = node.getAttribute('data-id');
-    node.addEventListener('mouseenter', function () {
-      svg.classList.add('dim');
-      node.classList.add('hot');
-      edges.forEach(function (e) {
-        var f = e.getAttribute('data-from'), t = e.getAttribute('data-to');
-        if (f !== id && t !== id) return;
-        e.classList.add('hot');
-        var other = f === id ? t : f;
-        nodes.forEach(function (m) {
-          if (m.getAttribute('data-id') === other) m.classList.add('hot');
-        });
-      });
-    });
-    node.addEventListener('mouseleave', function () {
-      svg.classList.remove('dim');
-      nodes.forEach(function (m) { m.classList.remove('hot'); });
-      edges.forEach(function (e) { e.classList.remove('hot'); });
-    });
+    node.addEventListener('mouseenter', function () { setHot(id); });
+    node.addEventListener('mouseleave', applyPin);
   });
 
   svg.addEventListener('wheel', function (ev) {
@@ -348,7 +456,11 @@ const HTML_TAIL: &str = r#"<script>
 
   var drag = null;
   svg.addEventListener('pointerdown', function (ev) {
+    if (ev.button !== 0) return;
     drag = { x: ev.clientX, y: ev.clientY, tx: tx, ty: ty };
+    // The pointer is captured to the svg on down, so the up targets the
+    // svg; the node a click means is read off the down's target.
+    down = { x: ev.clientX, y: ev.clientY, target: ev.target };
     svg.setPointerCapture(ev.pointerId);
   });
   svg.addEventListener('pointermove', function (ev) {
@@ -357,7 +469,21 @@ const HTML_TAIL: &str = r#"<script>
     ty = drag.ty + ev.clientY - drag.y;
     apply();
   });
-  svg.addEventListener('pointerup', function () { drag = null; });
+  svg.addEventListener('pointerup', function (ev) {
+    // A click is an up that stayed within a few pixels of its down; a pan
+    // drag never moves the pin. Background (any non-node) clears it.
+    if (down && ev.button === 0) {
+      var dx = ev.clientX - down.x, dy = ev.clientY - down.y;
+      if (dx * dx + dy * dy <= 16) {
+        var node = down.target.closest('.node');
+        var id = node ? node.getAttribute('data-id') : null;
+        pinned = id === pinned ? null : id;
+        applyPin();
+      }
+    }
+    drag = null;
+    down = null;
+  });
   svg.addEventListener('dblclick', fit);
   window.addEventListener('resize', fit);
   fit();
