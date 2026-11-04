@@ -30,6 +30,7 @@ pub fn validate(plan: &Plan) -> Report {
 
     check_unit(plan, &mut r);
     check_dates(plan, &mut r);
+    check_names(plan, &mut r);
     check_calendars(plan, &mut r);
     check_role_vocabulary(plan, &mut r);
     check_tasks(plan, &mut r);
@@ -57,6 +58,61 @@ fn check_dates(plan: &Plan, r: &mut Report) {
             "start ({start}) is after the deadline ({deadline})"
         ));
     }
+}
+
+/// The naming door: the identifying names — the mapping keys of `tasks:`,
+/// `executors:` and `roles:` — are kebab-case slugs; free-form text belongs
+/// in `description:` fields, never in a decorated name
+/// (identifying-names-are-kebab-case-slugs). Like the estimate gate, it
+/// names every offender, never just the first.
+fn check_names(plan: &Plan, r: &mut Report) {
+    for name in plan.tasks.keys() {
+        if !is_slug(name) {
+            r.errors.push(format!(
+                "task `{name}`: name must be a kebab-case slug \
+                 (lowercase letters and digits, hyphen-separated, starting with a letter)"
+            ));
+        }
+    }
+    for name in plan.executors.keys() {
+        if !is_slug(name) {
+            r.errors.push(format!(
+                "executor `{name}`: name must be a kebab-case slug \
+                 (lowercase letters and digits, hyphen-separated, starting with a letter)"
+            ));
+        }
+    }
+    // Declared keys only: a reference to an undeclared role already dies in
+    // the vocabulary check — one offender, one error, never two.
+    for name in plan.roles.keys() {
+        if !is_slug(name) {
+            r.errors.push(format!(
+                "role `{name}`: name must be a kebab-case slug \
+                 (lowercase letters and digits, hyphen-separated, starting with a letter)"
+            ));
+        }
+    }
+}
+
+/// The slug rule as code: `NAME_PATTERN` — starts with a lowercase letter,
+/// then lowercase letters and digits, hyphens only as separators. The schema
+/// carries the same regex (`model::NAME_PATTERN`), so a name that passes
+/// here passes there.
+pub fn is_slug(name: &str) -> bool {
+    let mut chars = name.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_lowercase() => {}
+        _ => return false,
+    }
+    let mut after_hyphen = false;
+    for c in chars {
+        match c {
+            'a'..='z' | '0'..='9' => after_hyphen = false,
+            '-' if !after_hyphen => after_hyphen = true,
+            _ => return false,
+        }
+    }
+    !after_hyphen
 }
 
 fn check_calendars(plan: &Plan, r: &mut Report) {

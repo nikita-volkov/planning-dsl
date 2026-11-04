@@ -147,6 +147,9 @@ executors:
 
 #[test]
 fn labels_are_escaped_in_both_renders() {
+    // Names like these are refused at the door now (the slug rule), but the
+    // renderers stay library functions over `Plan`: defensively, the escape
+    // discipline holds for a plan that bypassed validation.
     let yaml = "
 unit: person-hours
 deadline: 2026-12-18
@@ -319,27 +322,10 @@ fn the_same_schedule_renders_the_gantt_byte_identically() {
     assert_eq!(a, b);
 }
 
-#[test]
-fn task_names_are_escaped_in_the_gantt() {
-    // The same escape discipline as the flowchart's quoted labels — the four
-    // characters that break mermaid or XML, as entities.
-    let yaml = "
-unit: person-hours
-start: 2026-11-02
-roles:
-  dev: implements
-tasks:
-  fix&ship: { role: dev, estimate: 2 }
-  a<b: { role: dev, estimate: 2, depends-on: [fix&ship] }
-executors:
-  anton: { roles: [dev], calendar: all }
-";
-    let gantt = scheduled_gantt(yaml);
-    assert!(gantt.contains("    fix&amp;ship :"), "{gantt}");
-    assert!(gantt.contains("    a&lt;b :"), "{gantt}");
-    assert!(!gantt.contains("fix&ship :"), "{gantt}");
-    assert!(!gantt.contains("a<b :"), "{gantt}");
-}
+// There is no gantt escape test: the slug rule refuses a non-slug name at
+// the validator, and the scheduler gates on the validator — no public route
+// carries a `fix&ship`-shaped name to a gantt bar. The class the old test
+// exercised is the one identifying-names-are-kebab-case-slugs retired.
 
 #[test]
 fn a_plan_with_nothing_left_to_do_renders_the_empty_frame() {

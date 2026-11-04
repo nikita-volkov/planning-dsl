@@ -21,10 +21,20 @@ use serde::{Deserialize, Serialize};
 #[serde(transparent)]
 pub struct DeclarationMap<V>(IndexMap<String, V>);
 
-/// In the schema it is just an object with typed properties — the ordered
-/// map is an implementation carrier for document order, not a shape plan
-/// authors could ever see. `inline_schema` keeps the wrapper itself from
-/// becoming a named `$defs` entry, exactly like schemars' own map impls.
+/// The shape of an identifying name: the mapping keys of `tasks:`,
+/// `executors:` and `roles:` are kebab-case slugs — lowercase letters and
+/// digits, hyphens only as separators, starting with a letter. The validator
+/// enforces it and the schema carries this same string as `patternProperties`,
+/// so the two cannot drift
+/// (identifying-names-are-kebab-case-slugs).
+pub const NAME_PATTERN: &str = "^[a-z][a-z0-9]*(-[a-z0-9]+)*$";
+
+/// In the schema it is an object keyed by the slug pattern: `patternProperties`
+/// built from `NAME_PATTERN` — the door the validator enforces, generated from
+/// the same string — plus `additionalProperties: false`, so a key outside the
+/// pattern fails schema validation too, not only validation proper.
+/// `inline_schema` keeps the wrapper itself from becoming a named `$defs`
+/// entry, exactly like schemars' own map impls.
 impl<V: JsonSchema> JsonSchema for DeclarationMap<V> {
     fn inline_schema() -> bool {
         true
@@ -37,7 +47,10 @@ impl<V: JsonSchema> JsonSchema for DeclarationMap<V> {
     fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!({
             "type": "object",
-            "additionalProperties": generator.subschema_for::<V>(),
+            "patternProperties": {
+                (NAME_PATTERN): generator.subschema_for::<V>(),
+            },
+            "additionalProperties": false,
         })
     }
 }
@@ -92,8 +105,9 @@ pub struct Plan {
     /// Working days for the whole plan; absent → Monday–Friday, no holidays.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calendar: Option<Calendar>,
-    /// Declared role vocabulary; descriptions are optional and feed the authoring agent.
-    pub roles: BTreeMap<String, Option<String>>,
+    /// Declared role vocabulary; the keys are kebab-case slugs, the
+    /// descriptions optional, feeding the authoring agent.
+    pub roles: DeclarationMap<Option<String>>,
     pub tasks: DeclarationMap<Task>,
     pub executors: DeclarationMap<Executor>,
 }
@@ -137,6 +151,11 @@ pub enum Weekday {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Task {
+    /// Free-form prose: what the work is, for the humans and agents reading
+    /// the plan. The name is the slug that identifies; the description
+    /// carries what the name cannot (tasks-carry-a-free-form-description).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     /// Written by sync tooling, never hand-typed. Absent means `todo`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<Status>,

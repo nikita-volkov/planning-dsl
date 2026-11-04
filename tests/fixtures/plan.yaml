@@ -24,6 +24,7 @@ tasks:
     role: planner
     estimate: 6
   implement-services:
+    description: stand up the services the architecture RFC fixes
     depends-on: [plan-out-the-tasks]
     role: dev
     estimate: 40

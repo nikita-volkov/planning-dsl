@@ -7,9 +7,9 @@ pub mod render;
 pub mod schedule;
 pub mod validate;
 
-pub use model::Plan;
+pub use model::{NAME_PATTERN, Plan};
 pub use schedule::{Schedule, TaskSchedule, schedule};
-pub use validate::{Report, validate};
+pub use validate::{Report, is_slug, validate};
 
 /// Parse a plan from YAML. Structural errors (a bad enum value, an unknown
 /// field, a missing plan-level field) die here, with serde's pointed message.

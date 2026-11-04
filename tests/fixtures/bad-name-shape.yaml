@@ -1,0 +1,14 @@
+unit: person-hours
+deadline: 2026-12-18
+
+roles:
+  Dev: implements services
+
+tasks:
+  Fix_Bug:
+    role: Dev
+    estimate: 3
+
+executors:
+  Anton:
+    roles: [Dev]

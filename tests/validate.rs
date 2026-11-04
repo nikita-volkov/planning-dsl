@@ -43,6 +43,118 @@ fn an_undeclared_role_is_named() {
 }
 
 #[test]
+fn a_name_that_is_not_a_slug_is_refused_every_offender_at_once() {
+    // One plan, three key spaces, three bad names — the report names all
+    // of them, never just the first. The role `Dev` is declared, so the
+    // references pass the vocabulary check: three errors, no doubles.
+    let report = check(fixture!("bad-name-shape.yaml")).expect("parses");
+    assert_eq!(report.errors.len(), 3, "{:?}", report.errors);
+    for offender in ["task `Fix_Bug`", "executor `Anton`", "role `Dev`"] {
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.contains(offender) && e.contains("kebab-case slug")),
+            "no error names {offender}: {:?}",
+            report.errors
+        );
+    }
+}
+
+#[test]
+fn slug_edges_hold_at_the_table() {
+    for name in ["ship", "ivan", "plan-out-the-tasks", "dev2", "a"] {
+        assert!(planning_dsl::is_slug(name), "`{name}` must pass");
+    }
+    for name in [
+        "2026-style", // digit-leading
+        "Foo",
+        "foo_bar",
+        "foo--bar",
+        "-foo",
+        "foo-",
+        "3foo",
+        "foo bar",
+        "foo:bar",
+        "",
+    ] {
+        assert!(!planning_dsl::is_slug(name), "`{name}` must fail");
+    }
+}
+
+#[test]
+fn a_description_round_trips_and_stays_optional() {
+    let with = "
+unit: person-hours
+roles:
+  dev: implements
+tasks:
+  ship:
+    role: dev
+    estimate: 8
+    description: cut a release behind a flag
+executors:
+  anton: { roles: [dev] }
+";
+    let plan = planning_dsl::load(with).expect("parses");
+    assert_eq!(
+        plan.tasks["ship"].description.as_deref(),
+        Some("cut a release behind a flag")
+    );
+    let rewritten = serde_yaml_ng::to_string(&plan).expect("serializes");
+    assert!(rewritten.contains("description:"), "{rewritten}");
+    let reloaded = check(&rewritten).expect("parses");
+    assert!(reloaded.is_ok(), "errors: {:?}", reloaded.errors);
+
+    let without = "
+unit: person-hours
+roles:
+  dev: implements
+tasks:
+  ship: { role: dev, estimate: 8 }
+executors:
+  anton: { roles: [dev] }
+";
+    let plan = planning_dsl::load(without).expect("parses");
+    assert!(plan.tasks["ship"].description.is_none());
+    let rewritten = serde_yaml_ng::to_string(&plan).expect("serializes");
+    assert!(!rewritten.contains("description"), "{rewritten}");
+}
+
+#[test]
+fn the_schema_carries_the_slug_pattern_on_every_key_space() {
+    let schema = planning_dsl::json_schema();
+    let properties = schema["properties"].as_object().expect("plan properties");
+    for space in ["tasks", "executors", "roles"] {
+        let map = &properties[space];
+        assert!(
+            map["patternProperties"][planning_dsl::NAME_PATTERN].is_object(),
+            "{space} carries no slug patternProperties: {map}"
+        );
+        // A key outside the pattern fails schema validation too.
+        assert_eq!(
+            map["additionalProperties"],
+            serde_json::json!(false),
+            "{space}"
+        );
+    }
+    // The description is a property but never a requirement.
+    let task = &schema["$defs"]["Task"];
+    assert!(
+        task["properties"]["description"].is_object(),
+        "{}",
+        serde_json::to_string_pretty(task).expect("serializes")
+    );
+    assert!(
+        !task["required"]
+            .as_array()
+            .expect("required")
+            .iter()
+            .any(|v| v == "description")
+    );
+}
+
+#[test]
 fn an_unknown_dependency_is_named() {
     let report = check(fixture!("bad-dependency.yaml")).expect("parses");
     assert!(
