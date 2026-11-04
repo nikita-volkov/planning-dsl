@@ -4,151 +4,151 @@ plan-end: 2027-02-03
 slippage-days: 0
 latest-start: 2026-11-28
 critical-path:
-- partitions-second-floor
-- rough-electrical-second-floor
-- plaster-walls-second-floor
-- paint-walls-second-floor
-- finish-electrical
-- final-cleaning-and-acceptance
+- перегородки-второй-этаж
+- электрика-черновая-второй-этаж
+- штукатурка-второй-этаж
+- малярка-второй-этаж
+- электрика-чистовая
+- уборка-и-приёмка
 tasks:
-  design-project:
+  дизайн-проект:
     status: done
-  demolition:
+  демонтаж:
     status: done
-  partitions-first-floor:
-    executor: mikhail
+  перегородки-первый-этаж:
+    executor: михаил
     start: 2026-11-05
     end: 2026-11-12
     active-days: 7
     status: in-progress
-  partitions-second-floor:
-    executor: mikhail
+  перегородки-второй-этаж:
+    executor: михаил
     start: 2026-11-13
     end: 2026-11-19
     active-days: 6
     status: todo
-  ventilation-ducts:
-    executor: sergey
+  вентиляция:
+    executor: сергей
     start: 2026-11-05
     end: 2026-11-07
     active-days: 3
     status: todo
-  rough-electrical-first-floor:
-    executor: viktor
+  электрика-черновая-первый-этаж:
+    executor: виктор
     start: 2026-11-13
     end: 2026-11-18
     active-days: 5
     status: todo
-  rough-electrical-second-floor:
-    executor: viktor
+  электрика-черновая-второй-этаж:
+    executor: виктор
     start: 2026-11-20
     end: 2026-11-25
     active-days: 5
     status: todo
-  rough-plumbing-first-floor:
-    executor: sergey
+  сантехника-черновая-первый-этаж:
+    executor: сергей
     start: 2026-11-13
     end: 2026-11-17
     active-days: 4
     status: todo
-  rough-plumbing-second-floor:
-    executor: sergey
+  сантехника-черновая-второй-этаж:
+    executor: сергей
     start: 2026-11-20
     end: 2026-11-24
     active-days: 4
     status: todo
-  floor-screed-first-floor:
-    executor: mikhail
+  стяжка-первый-этаж:
+    executor: михаил
     start: 2026-12-02
     end: 2026-12-09
     active-days: 7
     status: todo
-  floor-screed-second-floor:
-    executor: mikhail
+  стяжка-второй-этаж:
+    executor: михаил
     start: 2026-12-19
     end: 2026-12-24
     active-days: 6
     status: todo
-  plaster-walls-first-floor:
-    executor: mikhail
+  штукатурка-первый-этаж:
+    executor: михаил
     start: 2026-11-20
     end: 2026-12-01
     active-days: 10
     status: todo
-  plaster-walls-second-floor:
-    executor: mikhail
+  штукатурка-второй-этаж:
+    executor: михаил
     start: 2026-12-10
     end: 2026-12-18
     active-days: 8
     status: todo
-  select-and-order-materials:
-    executor: anna
+  подбор-материалов:
+    executor: анна
     start: 2026-11-05
     end: 2026-11-11
     active-days: 6
     status: todo
-  lighting-scenario:
-    executor: material-agent
+  сценарий-освещения:
+    executor: агент-подбора
     start: 2026-11-05
     end: 2026-11-06
     active-days: 2
     status: todo
-  tile-bathrooms-first-floor:
-    executor: grigory
+  плитка-санузлы-первый-этаж:
+    executor: григорий
     start: 2026-12-10
     end: 2026-12-16
     active-days: 6
     status: todo
-  tile-bathrooms-second-floor:
-    executor: grigory
+  плитка-санузлы-второй-этаж:
+    executor: григорий
     start: 2026-12-25
     end: 2026-12-30
     active-days: 5
     status: todo
-  paint-walls-first-floor:
-    executor: mikhail
+  малярка-первый-этаж:
+    executor: михаил
     start: 2026-12-25
     end: 2027-01-16
     active-days: 8
     status: todo
-  paint-walls-second-floor:
-    executor: mikhail
+  малярка-второй-этаж:
+    executor: михаил
     start: 2027-01-18
     end: 2027-01-25
     active-days: 7
     status: todo
-  interior-doors-install:
-    executor: pavel
+  установка-дверей:
+    executor: павел
     start: 2026-12-25
     end: 2026-12-28
     active-days: 3
     status: blocked
-  floor-covering-first-floor:
-    executor: pavel
+  полы-чистовые-первый-этаж:
+    executor: павел
     start: 2027-01-18
     end: 2027-01-21
     active-days: 4
     status: todo
-  floor-covering-second-floor:
-    executor: pavel
+  полы-чистовые-второй-этаж:
+    executor: павел
     start: 2027-01-26
     end: 2027-01-28
     active-days: 3
     status: todo
-  finish-electrical:
-    executor: viktor
+  электрика-чистовая:
+    executor: виктор
     start: 2027-01-26
     end: 2027-01-29
     active-days: 4
     status: todo
-  plumbing-fixtures-install:
-    executor: sergey
+  сантехприборы:
+    executor: сергей
     start: 2027-01-09
     end: 2027-01-12
     active-days: 3
     status: todo
-  final-cleaning-and-acceptance:
-    executor: mikhail
+  уборка-и-приёмка:
+    executor: михаил
     start: 2027-01-30
     end: 2027-02-03
     active-days: 4

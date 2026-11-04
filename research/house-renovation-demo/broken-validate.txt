@@ -1,6 +1,6 @@
 warning: role `plumber` is declared but never used
 warning: task `hang-the-chandelier`: no executor fills role `lamp-fitter`; it would never be assigned
-error: task `Build Kitchen Island`: name must be a kebab-case slug (lowercase letters and digits, hyphen-separated, starting with a letter)
+error: task `Build Kitchen Island`: name must be a slug (lowercase Latin or Cyrillic letters and digits, hyphen-separated, starting with a letter, one script per name)
 error: task `hang-the-chandelier`: role `lamp-fitter` is not declared in roles
 error: task `Build Kitchen Island`: estimate 200 is over a working month (160 person-hours at 8 h/day); a task this size is not estimable — split it
 error: task `hang-the-chandelier`: depends-on `order-the-chandelier` is not a task

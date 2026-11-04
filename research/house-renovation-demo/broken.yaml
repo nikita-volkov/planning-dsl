@@ -8,7 +8,7 @@ roles:
   plumber: pipes               # declared but never used → warning
 
 tasks:
-  Build Kitchen Island:        # not a kebab-case slug → error
+  Build Kitchen Island:        # not a slug: uppercase, spaces → error
     role: finisher
     estimate: 200              # over a working month → refused, split it
   hang-the-chandelier:

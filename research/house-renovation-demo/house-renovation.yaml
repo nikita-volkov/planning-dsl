@@ -1,9 +1,9 @@
 # research/house-renovation-demo/house-renovation.yaml — демо-план:
 # ремонт интерьера двухэтажного дома, начиная с черновой стадии.
 # Только структура; назначение, сроки и критический путь вычисляются.
-# Имена (задачи, роли, исполнители) — латинские кебаб-слаги по решению
-# identifying-names-are-kebab-case-slugs: валидатор кириллицу отвергает,
-# русский смысл живёт в описаниях и глоссах.
+# Имена — кириллические слаги по решению
+# identifying-names-are-lowercase-latin-or-cyrillic-slugs: строчные буквы
+# и цифры, дефисы-разделители, один алфавит в имени; проза — в описаниях.
 unit: person-hours
 start: 2026-11-05               # бригада заходит на следующий день после Дня народного единства
 deadline: 2027-02-26            # семья заселяется к дачному сезону в марте
@@ -14,147 +14,147 @@ calendar:
   extra-workdays: [2026-12-20]  # договорное воскресенье перед праздничным затишьем
 
 roles:                          # словарь ролей — проверяется валидатором
-  designer: дизайн-проект интерьера, подбор материалов и света
-  electrician: скрытая проводка, чистовые розетки, выключатели и свет
-  plumber: скрытая сантехника и вентиляция, чистовая сантехника
-  finisher: перегородки, штукатурка, стяжка пола, малярка
-  tiler: плитка в санузлах и фартук
-  joiner: межкомнатные двери и чистовые полы
+  дизайнер: дизайн-проект интерьера, подбор материалов и света
+  электрик: скрытая проводка, чистовые розетки, выключатели и свет
+  сантехник: скрытая сантехника и вентиляция, чистовая сантехника
+  отделочник: перегородки, штукатурка, стяжка пола, малярка
+  плиточник: плитка в санузлах и фартук
+  столяр: межкомнатные двери и чистовые полы
 
 tasks:
   # --- случилось до появления плана: засеяно done, больше не трогаем ---
-  design-project:               # дизайн-проект
+  дизайн-проект:
     status: done                # задачи done освобождены от потолка оценки
-    role: designer
+    role: дизайнер
     estimate: 40
-  demolition:                   # демонтаж
+  демонтаж:
     status: done
     description: снять старую отделку, вскрыть стены под новые трассы
-    role: finisher
+    role: отделочник
     estimate: 40
 
   # --- черновая стадия: стены, скрытые провода и трубы, стяжки ---
-  partitions-first-floor:       # перегородки первого этажа
+  перегородки-первый-этаж:
     status: in-progress         # засеяно с интервью; дальше статус ведёт синк
-    depends-on: [demolition]
-    role: finisher
+    depends-on: [демонтаж]
+    role: отделочник
     estimate: 40
-  partitions-second-floor:      # перегородки второго этажа
-    depends-on: [demolition]
-    role: finisher
+  перегородки-второй-этаж:
+    depends-on: [демонтаж]
+    role: отделочник
     estimate: 32
-  ventilation-ducts:            # короба вентиляции
-    depends-on: [demolition]
+  вентиляция:
+    depends-on: [демонтаж]
     description: приточка и вытяжка, скрытые за натяжными потолками
-    role: plumber
+    role: сантехник
     estimate: 24
-  rough-electrical-first-floor: # электрика черновая, первый этаж
-    depends-on: [partitions-first-floor]
-    role: electrician
+  электрика-черновая-первый-этаж:
+    depends-on: [перегородки-первый-этаж]
+    role: электрик
     estimate: 40
-  rough-electrical-second-floor: # электрика черновая, второй этаж
-    depends-on: [partitions-second-floor]
-    role: electrician
+  электрика-черновая-второй-этаж:
+    depends-on: [перегородки-второй-этаж]
+    role: электрик
     estimate: 36
-  rough-plumbing-first-floor:   # сантехника черновая, первый этаж
-    depends-on: [partitions-first-floor]
-    role: plumber
+  сантехника-черновая-первый-этаж:
+    depends-on: [перегородки-первый-этаж]
+    role: сантехник
     estimate: 32
-  rough-plumbing-second-floor:  # сантехника черновая, второй этаж
-    depends-on: [partitions-second-floor]
-    role: plumber
+  сантехника-черновая-второй-этаж:
+    depends-on: [перегородки-второй-этаж]
+    role: сантехник
     estimate: 28
-  floor-screed-first-floor:     # стяжка пола, первый этаж
-    depends-on: [rough-plumbing-first-floor, ventilation-ducts]
-    role: finisher
+  стяжка-первый-этаж:
+    depends-on: [сантехника-черновая-первый-этаж, вентиляция]
+    role: отделочник
     estimate: 40
-  floor-screed-second-floor:    # стяжка пола, второй этаж
-    depends-on: [rough-plumbing-second-floor]
-    role: finisher
+  стяжка-второй-этаж:
+    depends-on: [сантехника-черновая-второй-этаж]
+    role: отделочник
     estimate: 32
-  plaster-walls-first-floor:    # штукатурка стен, первый этаж
-    depends-on: [rough-electrical-first-floor, rough-plumbing-first-floor]
-    role: finisher
+  штукатурка-первый-этаж:
+    depends-on: [электрика-черновая-первый-этаж, сантехника-черновая-первый-этаж]
+    role: отделочник
     estimate: 56
-  plaster-walls-second-floor:   # штукатурка стен, второй этаж
-    depends-on: [rough-electrical-second-floor, rough-plumbing-second-floor]
-    role: finisher
+  штукатурка-второй-этаж:
+    depends-on: [электрика-черновая-второй-этаж, сантехника-черновая-второй-этаж]
+    role: отделочник
     estimate: 48
 
   # --- подбор материалов: роль, которую может взять и дизайнер, и агент ---
-  select-and-order-materials:   # подобрать и заказать материалы
-    depends-on: [design-project]
+  подбор-материалов:
+    depends-on: [дизайн-проект]
     description: плитка, паркет, палитры красок и сантехника — сравнить и заказать
-    role: designer
+    role: дизайнер
     estimate: 24
-  lighting-scenario:            # сценарий освещения
-    depends-on: [design-project]
-    role: designer
+  сценарий-освещения:
+    depends-on: [дизайн-проект]
+    role: дизайнер
     estimate: 16
 
   # --- чистовая стадия ---
-  tile-bathrooms-first-floor:   # плитка в санузлах, первый этаж
-    depends-on: [plaster-walls-first-floor, floor-screed-first-floor]
-    role: tiler
+  плитка-санузлы-первый-этаж:
+    depends-on: [штукатурка-первый-этаж, стяжка-первый-этаж]
+    role: плиточник
     estimate: 48
-  tile-bathrooms-second-floor:  # плитка в санузлах, второй этаж
-    depends-on: [plaster-walls-second-floor, floor-screed-second-floor]
-    role: tiler
+  плитка-санузлы-второй-этаж:
+    depends-on: [штукатурка-второй-этаж, стяжка-второй-этаж]
+    role: плиточник
     estimate: 40
-  paint-walls-first-floor:      # малярка, первый этаж
-    depends-on: [plaster-walls-first-floor, ventilation-ducts]
-    role: finisher
+  малярка-первый-этаж:
+    depends-on: [штукатурка-первый-этаж, вентиляция]
+    role: отделочник
     estimate: 48
-  paint-walls-second-floor:     # малярка, второй этаж
-    depends-on: [plaster-walls-second-floor, ventilation-ducts]
-    role: finisher
+  малярка-второй-этаж:
+    depends-on: [штукатурка-второй-этаж, вентиляция]
+    role: отделочник
     estimate: 40
-  interior-doors-install:       # установка межкомнатных дверей
+  установка-дверей:
     status: blocked             # blocked всё равно планируется: мощность, а не правда
     blocked-reason: дверные полотна застряли у поставщика, срок поставки неизвестен
-    depends-on: [floor-screed-first-floor, floor-screed-second-floor]
-    role: joiner
+    depends-on: [стяжка-первый-этаж, стяжка-второй-этаж]
+    role: столяр
     estimate: 24
-  floor-covering-first-floor:   # чистовые полы, первый этаж
-    depends-on: [floor-screed-first-floor, paint-walls-first-floor]
-    role: joiner
+  полы-чистовые-первый-этаж:
+    depends-on: [стяжка-первый-этаж, малярка-первый-этаж]
+    role: столяр
     estimate: 32
-  floor-covering-second-floor:  # чистовые полы, второй этаж
-    depends-on: [floor-screed-second-floor, paint-walls-second-floor]
-    role: joiner
+  полы-чистовые-второй-этаж:
+    depends-on: [стяжка-второй-этаж, малярка-второй-этаж]
+    role: столяр
     estimate: 24
-  finish-electrical:            # чистовая электрика
-    depends-on: [paint-walls-first-floor, paint-walls-second-floor, tile-bathrooms-first-floor, tile-bathrooms-second-floor]
+  электрика-чистовая:
+    depends-on: [малярка-первый-этаж, малярка-второй-этаж, плитка-санузлы-первый-этаж, плитка-санузлы-второй-этаж]
     description: розетки, выключатели, щиток и светильники
-    role: electrician
+    role: электрик
     estimate: 32
-  plumbing-fixtures-install:    # установка сантехприборов
-    depends-on: [tile-bathrooms-first-floor, tile-bathrooms-second-floor]
-    role: plumber
+  сантехприборы:
+    depends-on: [плитка-санузлы-первый-этаж, плитка-санузлы-второй-этаж]
+    role: сантехник
     estimate: 24
-  final-cleaning-and-acceptance: # уборка и приёмка
-    depends-on: [floor-covering-first-floor, floor-covering-second-floor, finish-electrical, plumbing-fixtures-install, interior-doors-install]
-    role: finisher
+  уборка-и-приёмка:
+    depends-on: [полы-чистовые-первый-этаж, полы-чистовые-второй-этаж, электрика-чистовая, сантехприборы, установка-дверей]
+    role: отделочник
     estimate: 24
 
 executors:
-  anna:                         # Анна — дизайнер, подработка по 4 ч в день
-    roles: [designer]
+  анна:                         # дизайнер: подработка по 4 ч в день
+    roles: [дизайнер]
     availability: 0.5
     ids: { trello: ANNA-7 }
-  mikhail:                      # Михаил — отделочник, подрабатывающий плиточником
-    role-weights: { finisher: 3, tiler: 1 }   # 6 ч отделки, 2 ч плитки в день
+  михаил:                       # отделочник, подрабатывающий плиточником
+    role-weights: { отделочник: 3, плиточник: 1 }   # 6 ч отделки, 2 ч плитки в день
     availability:
       - { from: 2026-12-28, until: 2027-01-10, fraction: 0.0 }  # новогодний перерыв
-  grigory:                      # Григорий — плиточник
-    roles: [tiler]
-  viktor:                       # Виктор — электрик
-    roles: [electrician]
-  sergey:                       # Сергей — сантехник
-    roles: [plumber]
-  pavel:                        # Павел — столяр
-    roles: [joiner]
-  material-agent:               # агент: слоты, а не часы
-    roles: [designer]
+  григорий:
+    roles: [плиточник]
+  виктор:
+    roles: [электрик]
+  сергей:
+    roles: [сантехник]
+  павел:
+    roles: [столяр]
+  агент-подбора:                # агент: слоты, а не часы
+    roles: [дизайнер]
     concurrency: 2
     calendar: all               # работает каждый день, включая выходные
