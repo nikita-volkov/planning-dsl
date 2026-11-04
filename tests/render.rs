@@ -1137,11 +1137,11 @@ fn the_cli_writes_the_gantt_only_when_asked() {
     // Bare `render`: the two always-on renders, no gantt file.
     let out = render_cli(&dir, PLAN, &[]);
     assert!(out.status.success(), "{:?}", out);
-    assert!(dir.join("plan.mmd").exists());
-    assert!(dir.join("plan.html").exists());
+    assert!(dir.join("plan.dependencies.mmd").exists());
+    assert!(dir.join("plan.dependencies.html").exists());
     assert!(!dir.join("plan.gantt.mmd").exists());
-    // `--gantt`, unnamed: the default name beside the others.
-    let out = render_cli(&dir, PLAN, &["--gantt"]);
+    // `--gantt-mmd`, unnamed: the default name beside the others.
+    let out = render_cli(&dir, PLAN, &["--gantt-mmd"]);
     assert!(out.status.success(), "{:?}", out);
     let gantt = std::fs::read_to_string(dir.join("plan.gantt.mmd")).expect("the gantt written");
     assert!(gantt.starts_with("gantt\n"), "{gantt}");
@@ -1152,7 +1152,7 @@ fn the_cli_writes_the_gantt_only_when_asked() {
 fn the_cli_accepts_an_explicit_gantt_file() {
     let dir = tempdir("explicit");
     let named = dir.join("chart.mmd");
-    let out = render_cli(&dir, PLAN, &["--gantt", named.to_str().expect("utf-8")]);
+    let out = render_cli(&dir, PLAN, &["--gantt-mmd", named.to_str().expect("utf-8")]);
     assert!(out.status.success(), "{:?}", out);
     assert!(named.exists());
 }
@@ -1168,14 +1168,14 @@ fn the_html_graph_is_top_down_by_default() {
     let dir = tempdir("default-direction");
     let out = render_cli(&dir, PLAN, &[]);
     assert!(out.status.success(), "{:?}", out);
-    let written = std::fs::read_to_string(dir.join("plan.html")).expect("the html written");
+    let written = std::fs::read_to_string(dir.join("plan.dependencies.html")).expect("the html written");
     assert_eq!(written, render::html(&plan, Direction::Tb, Some(&artifact)));
     assert_eq!(data_block(&written)["direction"], "DOWN");
 
     let dir = tempdir("lr-direction");
-    let out = render_cli(&dir, PLAN, &["--direction", "lr"]);
+    let out = render_cli(&dir, PLAN, &["--dependencies-direction", "lr"]);
     assert!(out.status.success(), "{:?}", out);
-    let written = std::fs::read_to_string(dir.join("plan.html")).expect("the html written");
+    let written = std::fs::read_to_string(dir.join("plan.dependencies.html")).expect("the html written");
     assert_eq!(written, render::html(&plan, Direction::Lr, Some(&artifact)));
     assert_eq!(data_block(&written)["direction"], "RIGHT");
 }
@@ -1183,12 +1183,12 @@ fn the_html_graph_is_top_down_by_default() {
 #[test]
 fn the_cli_rejects_an_unknown_direction() {
     let dir = tempdir("bad-direction");
-    let out = render_cli(&dir, PLAN, &["--direction", "diagonal"]);
+    let out = render_cli(&dir, PLAN, &["--dependencies-direction", "diagonal"]);
     assert!(!out.status.success(), "{:?}", out);
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("tb or lr"), "{stderr}");
     // A missing value is the same refusal.
-    let out = render_cli(&dir, PLAN, &["--direction"]);
+    let out = render_cli(&dir, PLAN, &["--dependencies-direction"]);
     assert!(!out.status.success(), "{:?}", out);
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("tb or lr"), "{stderr}");
@@ -1202,7 +1202,7 @@ fn a_scheduler_refusal_writes_nothing_even_with_the_gantt_asked() {
     let out = render_cli(
         &dir,
         include_str!("fixtures/plan-without-dates.yaml"),
-        &["--gantt"],
+        &["--gantt-mmd"],
     );
     assert!(!out.status.success(), "{:?}", out);
     let stderr = String::from_utf8_lossy(&out.stderr);
@@ -1219,14 +1219,14 @@ fn the_cli_marks_the_critical_path_in_the_html_when_the_plan_schedules() {
     let dir = tempdir("crit-html");
     let out = render_cli(&dir, PLAN, &[]);
     assert!(out.status.success(), "{:?}", out);
-    let html = std::fs::read_to_string(dir.join("plan.html")).expect("the html written");
+    let html = std::fs::read_to_string(dir.join("plan.dependencies.html")).expect("the html written");
     assert!(html.contains("\"crit\":true"), "{html}");
     assert!(html.contains("red: critical path"), "{html}");
 }
 
 #[test]
 fn a_scheduling_refusal_warns_and_the_html_still_writes_unmarked() {
-    // No `start:` and no `--gantt`: the run succeeds — the mmd and the
+    // No `start:` and no `--gantt-mmd`: the run succeeds — the mmd and the
     // html write — with the refusal downgraded to a warning on stderr, and
     // the html carries no crit marking and no legend line. The graph is
     // most useful on early drafts that cannot schedule yet.
@@ -1236,9 +1236,9 @@ fn a_scheduling_refusal_warns_and_the_html_still_writes_unmarked() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("warning:"), "{stderr}");
     assert!(stderr.contains("no start"), "{stderr}");
-    assert!(dir.join("plan.mmd").exists());
+    assert!(dir.join("plan.dependencies.mmd").exists());
     assert!(!dir.join("plan.gantt.mmd").exists());
-    let html = std::fs::read_to_string(dir.join("plan.html")).expect("the html written");
+    let html = std::fs::read_to_string(dir.join("plan.dependencies.html")).expect("the html written");
     assert!(!html.contains("\"crit\":true"), "{html}");
     assert!(!html.contains("red: critical path"), "{html}");
 }
@@ -1253,9 +1253,9 @@ fn the_gantt_and_the_html_read_one_schedule() {
     let plan = load(PLAN).expect("parses");
     let artifact = schedule(&plan).expect("schedules");
     let dir = tempdir("shared-schedule");
-    let out = render_cli(&dir, PLAN, &["--gantt"]);
+    let out = render_cli(&dir, PLAN, &["--gantt-mmd"]);
     assert!(out.status.success(), "{:?}", out);
-    let html = std::fs::read_to_string(dir.join("plan.html")).expect("the html written");
+    let html = std::fs::read_to_string(dir.join("plan.dependencies.html")).expect("the html written");
     assert_eq!(html, render::html(&plan, Direction::Tb, Some(&artifact)));
     let gantt = std::fs::read_to_string(dir.join("plan.gantt.mmd")).expect("the gantt written");
     assert_eq!(gantt, render::gantt(&artifact));

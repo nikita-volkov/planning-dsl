@@ -14,18 +14,24 @@ commands:
                          are file edits under git)
   emit-schema            print the JSON Schema for plan.yaml
   render <plan.yaml>     write the derived renders beside the plan
-      --mmd <file>       the mermaid flowchart (default: <stem>.mmd)
-      --html <file>      the interactive graph (default: <stem>.html); on a
-                         plan that schedules it marks the critical path — a
+      --dependencies-mmd <file>
+                         the mermaid dependency graph (default:
+                         <stem>.dependencies.mmd)
+      --dependencies-html <file>
+                         the interactive graph (default:
+                         <stem>.dependencies.html); on a plan that
+                         schedules it marks the critical path — a
                          scheduling refusal warns, the graph still writes
-      --direction <dir>  graph layout: tb (top-down, the default) or lr
+      --dependencies-direction <dir>
+                         graph layout: tb (top-down, the default) or lr
                          (left-to-right)
-      --gantt [<file>]   the mermaid gantt (default: <stem>.gantt.mmd);
+      --gantt-mmd [<file>]
+                         the mermaid gantt (default: <stem>.gantt.mmd);
                          opt-in: it runs the scheduler, so the plan needs a
                          start: and full estimates — a refusal writes nothing
       --gantt-html       the interactive HTML gantt (default:
                          <stem>.gantt.html); an optional file name, the same
-                         gate as --gantt
+                         gate as --gantt-mmd
 ";
 
 fn main() -> ExitCode {
@@ -195,8 +201,8 @@ fn render(args: &[String]) -> ExitCode {
     let mut flags = args.iter().peekable();
     while let Some(arg) = flags.next() {
         match arg.as_str() {
-            "--mmd" | "--html" | "--gantt" | "--gantt-html" => {
-                // A following non-flag token is the file name. `--gantt` and
+            "--dependencies-mmd" | "--dependencies-html" | "--gantt-mmd" | "--gantt-html" => {
+                // A following non-flag token is the file name. `--gantt-mmd` and
                 // `--gantt-html` may also stand alone: their presence, not a
                 // name, is the request — unnamed, they take the default file.
                 let named = match flags.peek() {
@@ -205,29 +211,29 @@ fn render(args: &[String]) -> ExitCode {
                 };
                 let target = match named {
                     Some(v) => Some(v.as_str()),
-                    None if arg == "--gantt" || arg == "--gantt-html" => None,
+                    None if arg == "--gantt-mmd" || arg == "--gantt-html" => None,
                     None => {
                         eprintln!("error: {arg} needs a file\n{USAGE}");
                         return ExitCode::from(2);
                     }
                 };
                 match arg.as_str() {
-                    "--mmd" => mmd_path = target,
-                    "--html" => html_path = target,
-                    "--gantt" => gantt_path = Some(target),
+                    "--dependencies-mmd" => mmd_path = target,
+                    "--dependencies-html" => html_path = target,
+                    "--gantt-mmd" => gantt_path = Some(target),
                     _ => gantt_html_path = Some(target),
                 }
             }
-            "--direction" => {
+            "--dependencies-direction" => {
                 let Some(value) = flags.next() else {
-                    eprintln!("error: --direction needs tb or lr\n{USAGE}");
+                    eprintln!("error: --dependencies-direction needs tb or lr\n{USAGE}");
                     return ExitCode::from(2);
                 };
                 direction = match value.as_str() {
                     "tb" => planning_dsl::render::Direction::Tb,
                     "lr" => planning_dsl::render::Direction::Lr,
                     other => {
-                        eprintln!("error: --direction is tb or lr, not {other}\n{USAGE}");
+                        eprintln!("error: --dependencies-direction is tb or lr, not {other}\n{USAGE}");
                         return ExitCode::from(2);
                     }
                 };
@@ -274,8 +280,8 @@ fn render(args: &[String]) -> ExitCode {
         eprintln!("{path}: not rendered — fix the errors above first");
         return ExitCode::FAILURE;
     }
-    let default_mmd = Path::new(path).with_extension("mmd");
-    let default_html = Path::new(path).with_extension("html");
+    let default_mmd = Path::new(path).with_extension("dependencies.mmd");
+    let default_html = Path::new(path).with_extension("dependencies.html");
     let default_gantt = Path::new(path).with_extension("gantt.mmd");
     let default_gantt_html = Path::new(path).with_extension("gantt.html");
     let mmd_out: &Path = match mmd_path {
