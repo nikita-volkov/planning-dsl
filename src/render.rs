@@ -21,8 +21,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{Datelike, Duration};
+use serde_json::{json, Map as JsonMap, Value as JsonValue};
 
-use crate::model::{Plan, Status, Task};
+use crate::model::{Plan, Status};
 use crate::schedule::{Schedule, TaskSchedule};
 
 /// The dependency edges, canonicalized: `(dependency, dependent)` pairs —
@@ -515,34 +516,41 @@ pub enum Direction {
     Lr,
 }
 
-/// The interactive HTML graph: one self-contained file. The SVG geometry is
-/// computed here — one row or column per layer along the flow
-/// (`Direction`), dependencies upstream of dependents — and the inline JS
-/// adds hover highlighting (a task, its dependency edges and its
-/// neighbours; shift extends it to the transitive downstream), a detail
-/// card fed by the nodes' data attributes, click-to-pin, pan, wheel zoom
-/// and fit-on-load. Nodes carry a second label line, `role · estimate`; a
-/// declared status colours the node (grey done, blue in-progress, orange
-/// blocked, crit always winning); edges wear arrowheads picked by class. A
-/// corner legend states the keys the page actually uses. No CDN, no
-/// network, no layout library; it opens offline.
+/// The interactive HTML graph: one self-contained file built on the vendored
+/// standard library (`decisions/the-html-graph-is-built-on-a-vendored-standard-library`):
+/// cytoscape renders, and the ELK layered layout — reached through the
+/// cytoscape-elk wrapper — places the nodes, with nothing hand-rolled beyond
+/// configuration and a small init glue. Rust computes no geometry: it emits
+/// the three pinned dist bundles verbatim (`assets/`, license headers
+/// intact), a JSON data block, and the glue.
+/// The data block carries one record per task — the name, the description,
+/// the declared status, the role, the estimate, the done and crit flags,
+/// the direct dependents in declaration order, and, when the schedule
+/// artifact was handed in, its line (executor, start, end, active days);
+/// absent fields are omitted — plus the canonicalized edges with their crit
+/// marks, the flow direction (`DOWN`/`RIGHT`), and the legend lines. The
+/// glue sizes each node's box to its two label lines (`role · estimate`
+/// under the name) by measuring text the way cytoscape itself measures a
+/// label, and leaves everything else to the libraries: ELK positions and
+/// orders the layers along the direction, cytoscape draws and interacts —
+/// pan, wheel zoom, fit on load, hover highlight (1-hop by default, the
+/// transitive downstream on Shift via `successors()`), click-to-pin detail
+/// card, status colours, done muting, class-picked arrowheads, corner
+/// legend. The artifact opens offline; the accepted cost is ~2 MB of
+/// embedded bundles.
 ///
-/// Each node group prints what its label cannot show as data attributes —
-/// the description (`data-desc`), the declared status (`data-status`) and
-/// its direct dependents (`data-down`, declaration order) — so the JS
-/// traverses only structure Rust printed, and the bytes stay
-/// deterministic.
+/// The schedule artifact, when handed one, marks the critical path: nodes
+/// named in the artifact's `critical-path` chain wear `crit`, and an edge
+/// wears `crit` exactly when it is a consecutive pair of the chain — the
+/// chain is emitted dependency-first and the scheduler steps only along
+/// real dependencies, so consecutive pairs are real edges by construction;
+/// no heuristic. `None` marks nothing and prints no artifact data. Done
+/// tasks are never on the chain (the scheduler leaves them off), so done
+/// muting and `crit` never collide.
 ///
-/// The schedule artifact, when handed one, marks the critical path and
-/// fills the card's schedule half: nodes named in the artifact's
-/// `critical-path` chain wear `crit`, and an edge wears `crit` exactly when
-/// it is a consecutive pair of the chain — the chain is emitted
-/// dependency-first and the scheduler steps only along real dependencies,
-/// so consecutive pairs are real edges by construction; no heuristic. Each
-/// node also prints its artifact line (`data-executor`, `data-start`,
-/// `data-end`, `data-days`), absent fields omitted. `None` marks nothing
-/// and prints no artifact data. Done tasks are never on the chain (the
-/// scheduler leaves them off), so done muting and `crit` never collide.
+/// The bytes stay deterministic: the model's declaration order (the
+/// `BTreeMap`s), the canonicalized edge set, and the pinned bundles — same
+/// plan, same blobs, same bytes.
 pub fn html(plan: &Plan, direction: Direction, schedule: Option<&Schedule>) -> String {
     let tasks = &plan.tasks;
     let edges = edges(plan);
@@ -563,270 +571,130 @@ pub fn html(plan: &Plan, direction: Direction, schedule: Option<&Schedule>) -> S
         None => BTreeSet::new(),
     };
 
-    // Layer = longest path from a root, by bounded fixed-point iteration. A
-    // plan that renders is acyclic so this converges; the bound keeps a
-    // defensively-rendered cyclic one from hanging.
-    let mut layer: BTreeMap<&str, usize> = tasks.keys().map(|k| (k.as_str(), 0)).collect();
-    for _ in 0..tasks.len() {
-        let mut changed = false;
-        for (name, task) in tasks {
-            let next = task
-                .depends_on
-                .iter()
-                .filter(|d| tasks.contains_key(*d))
-                .map(|d| layer[d.as_str()] + 1)
-                .max()
-                .unwrap_or(0);
-            if next > layer[name.as_str()] {
-                layer.insert(name.as_str(), next);
-                changed = true;
+    // The JSON data block: the structure the glue draws and the card reads.
+    // Declaration order for the tasks (the `BTreeMap`'s key order), the
+    // canonicalized edge set, an absent field printed no key at all.
+    let records: Vec<JsonValue> = tasks
+        .iter()
+        .map(|(name, task)| {
+            let mut rec = JsonMap::new();
+            rec.insert("name".into(), json!(name));
+            if let Some(desc) = &task.description {
+                rec.insert("description".into(), json!(desc));
             }
-        }
-        if !changed {
-            break;
-        }
-    }
-
-    // Geometry, in integers, so the bytes cannot depend on float
-    // formatting. The layers flow along the direction: top-down, a row per
-    // layer stacked vertically — dependencies at the top, dependents below;
-    // left-to-right, a column per layer — dependencies on the left,
-    // dependents on the right. Rows keep declaration order; each row is
-    // centered across the flow.
-    const ROW_H: usize = 84; // NODE_H + two 22px half-gaps: rows breathe
-    const NODE_H: usize = 40; // two text lines: the name, and role · estimate
-    const NAME_Y: usize = 13; // the 12px name line, centered in the top half
-    const SUB_Y: usize = 28; // the 10px role·estimate line, in the bottom half
-    const CHAR_W: usize = 8; // 12px monospace advances ~7.2px; slack kept
-    const PAD_X: usize = 10;
-    const MIN_W: usize = 100;
-    const H_GAP: usize = 90;
-    const MARGIN: usize = 24;
-
-    // The second label line: `role · estimate`, the estimate written bare
-    // ("6", "4.5"); without one, just the role. The unit is stated once, in
-    // the corner legend.
-    let sub_label = |t: &Task| match t.estimate {
-        Some(e) => format!("{} · {}", t.role, e),
-        None => t.role.clone(),
-    };
-    // The node's width follows the longer of its two label lines.
-    let width = |name: &str, t: &Task| {
-        let line_w = |s: &str| s.chars().count() * CHAR_W + 2 * PAD_X;
-        line_w(name).max(line_w(&sub_label(t))).max(MIN_W)
-    };
-
-    let max_layer = layer.values().copied().max().unwrap_or(0);
-    let mut rows: Vec<Vec<&str>> = vec![Vec::new(); max_layer + 1];
-    for name in tasks.keys() {
-        rows[layer[name.as_str()]].push(name.as_str());
-    }
-    let max_rows = rows.iter().map(Vec::len).max().unwrap_or(0);
-
-    let mut pos: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
-    let (canvas_w, canvas_h) = match direction {
-        Direction::Lr => {
-            let col_w = rows
-                .iter()
-                .flatten()
-                .copied()
-                .map(|n| width(n, &tasks[n]))
-                .max()
-                .unwrap_or(MIN_W)
-                + H_GAP;
-            for (l, col) in rows.iter().enumerate() {
-                let top = MARGIN + (max_rows - col.len()) * ROW_H / 2;
-                for (i, &name) in col.iter().enumerate() {
-                    pos.insert(name, (MARGIN + l * col_w, top + i * ROW_H));
+            // The declared status, kebab-case like the artifact writes it;
+            // todo declares nothing — it is the default look.
+            if let Some(status) = task.status {
+                if status != Status::Todo {
+                    rec.insert("status".into(), json!(status_label(status)));
                 }
             }
-            (
-                MARGIN + (max_layer + 1) * col_w,
-                MARGIN * 2 + max_rows * ROW_H,
-            )
-        }
-        Direction::Tb => {
-            // The canvas width fits the widest layer; every row is centered
-            // horizontally within it.
-            let row_w = |col: &[&str]| -> usize {
-                col.iter().map(|n| width(n, &tasks[*n])).sum::<usize>()
-                    + col.len().saturating_sub(1) * H_GAP
-            };
-            let flow_w = rows.iter().map(|c| row_w(c)).max().unwrap_or(0);
-            for (l, col) in rows.iter().enumerate() {
-                let mut x = MARGIN + (flow_w - row_w(col)) / 2;
-                let top = MARGIN + l * ROW_H;
-                for &name in col {
-                    pos.insert(name, (x, top));
-                    x += width(name, &tasks[name]) + H_GAP;
+            rec.insert("role".into(), json!(task.role));
+            if let Some(estimate) = task.estimate {
+                rec.insert("estimate".into(), json!(estimate));
+            }
+            if task.status == Some(Status::Done) {
+                rec.insert("done".into(), json!(true));
+            }
+            if crit_nodes.contains(name.as_str()) {
+                rec.insert("crit".into(), json!(true));
+            }
+            // Direct dependents, declaration order — the raw adjacency.
+            let downs: Vec<&str> = tasks
+                .iter()
+                .filter(|(_, t)| t.depends_on.iter().any(|d| d == name))
+                .map(|(dependent, _)| dependent.as_str())
+                .collect();
+            if !downs.is_empty() {
+                rec.insert("downs".into(), json!(downs));
+            }
+            // The artifact line, when handed one; absent fields omitted.
+            if let Some(line) = schedule.and_then(|s| s.tasks.get(name.as_str())) {
+                if let Some(executor) = &line.executor {
+                    rec.insert("executor".into(), json!(executor));
+                }
+                if let Some(start) = line.start {
+                    rec.insert("start".into(), json!(start.to_string()));
+                }
+                if let Some(end) = line.end {
+                    rec.insert("end".into(), json!(end.to_string()));
+                }
+                if let Some(days) = line.active_days {
+                    rec.insert("days".into(), json!(days));
                 }
             }
-            (MARGIN * 2 + flow_w, MARGIN * 2 + (max_layer + 1) * ROW_H)
-        }
-    };
+            JsonValue::Object(rec)
+        })
+        .collect();
+    let edge_records: Vec<JsonValue> = edges
+        .iter()
+        .map(|&(from, to)| {
+            let mut rec = JsonMap::new();
+            rec.insert("from".into(), json!(from));
+            rec.insert("to".into(), json!(to));
+            if crit_edges.contains(&(from, to)) {
+                rec.insert("crit".into(), json!(true));
+            }
+            JsonValue::Object(rec)
+        })
+        .collect();
 
-    let mut svg = String::new();
-    svg.push_str(&format!(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{cw}\" height=\"{ch}\" data-w=\"{cw}\" data-h=\"{ch}\">\n",
-        cw = canvas_w,
-        ch = canvas_h,
-    ));
-    // The arrowheads: one marker per edge state, fill matched to the
-    // strokes, wired by CSS class — one rule per state, never a per-path
-    // attribute.
-    let marker = |id: &str, fill: &str| {
-        format!(
-            "<marker id=\"{id}\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" \
-             markerWidth=\"7\" markerHeight=\"7\" orient=\"auto\">\
-             <path d=\"M0,0 L10,5 L0,10 z\" fill=\"{fill}\"/></marker>\n"
-        )
-    };
-    svg.push_str("<defs>\n");
-    svg.push_str(&marker("arrow", "#9aa4b2"));
-    svg.push_str(&marker("arrow-crit", "#b91c1c"));
-    svg.push_str(&marker("arrow-hot", "#b45309"));
-    svg.push_str("</defs>\n");
-    svg.push_str("<g id=\"view\">\n");
-
-    // Edges first, so nodes paint over them; an edge leaves the dependency
-    // where the flow exits it and enters the dependent where the flow
-    // arrives — bottom-center to top-center in tb, right edge to left edge
-    // in lr — arrowhead at the dependent: arrows follow execution order.
-    // The bezier's control points sit on the midpoint of the axis the flow
-    // runs along.
-    for &(from, to) in &edges {
-        let (fx, fy) = pos[from];
-        let (tx, ty) = pos[to];
-        let d = match direction {
-            Direction::Lr => {
-                let (sx, sy) = (fx + width(from, &tasks[from]), fy + NODE_H / 2);
-                let (ex, ey) = (tx, ty + NODE_H / 2);
-                let mx = (sx + ex) / 2;
-                format!("M {sx},{sy} C {mx},{sy} {mx},{ey} {ex},{ey}")
-            }
-            Direction::Tb => {
-                let (sx, sy) = (fx + width(from, &tasks[from]) / 2, fy + NODE_H);
-                let (ex, ey) = (tx + width(to, &tasks[to]) / 2, ty);
-                let my = (sy + ey) / 2;
-                format!("M {sx},{sy} C {sx},{my} {ex},{my} {ex},{ey}")
-            }
-        };
-        let class = if crit_edges.contains(&(from, to)) {
-            "edge crit"
-        } else {
-            "edge"
-        };
-        svg.push_str(&format!(
-            "<path class=\"{class}\" data-from=\"{f}\" data-to=\"{t}\" \
-             d=\"{d}\"/>\n",
-            f = escape(from),
-            t = escape(to),
-        ));
-    }
-    let done = |t: &Task| t.status == Some(Status::Done);
-    for name in tasks.keys() {
-        let task = &tasks[name.as_str()];
-        let (x, y) = pos[name.as_str()];
-        let label = escape(name);
-        let sub = escape(&sub_label(task));
-        // The class is additive, not a chain: crit is the schedule-derived
-        // backbone, the status class the tracker state, and a task may
-        // carry both. Crit keeps its colour by rule order in the
-        // stylesheet; todo declares no status class.
-        let mut class = String::from("node");
-        if crit_nodes.contains(name.as_str()) {
-            class.push_str(" crit");
-        }
-        if let Some(status) = task.status {
-            if status != Status::Todo {
-                class.push_str(&format!(" {}", status_label(status)));
-            }
-        }
-        // The card's and the shift-closure's data, printed where the label
-        // cannot show it: plan-carried fields first, then the artifact
-        // line's; an absent field prints no attribute at all.
-        let mut attrs = String::new();
-        if let Some(desc) = &task.description {
-            attrs.push_str(&format!(" data-desc=\"{}\"", escape(desc)));
-        }
-        if let Some(status) = task.status {
-            if status != Status::Todo {
-                attrs.push_str(&format!(" data-status=\"{}\"", status_label(status)));
-            }
-        }
-        // Direct dependents, declaration order — the raw adjacency the JS
-        // traverses on shift.
-        let downs: Vec<&str> = tasks
-            .iter()
-            .filter(|(_, t)| t.depends_on.iter().any(|d| d == name))
-            .map(|(dependent, _)| dependent.as_str())
-            .collect();
-        if !downs.is_empty() {
-            attrs.push_str(&format!(" data-down=\"{}\"", escape(&downs.join(" "))));
-        }
-        if let Some(line) = schedule.and_then(|s| s.tasks.get(name.as_str())) {
-            if let Some(executor) = &line.executor {
-                attrs.push_str(&format!(" data-executor=\"{}\"", escape(executor)));
-            }
-            if let Some(start) = line.start {
-                attrs.push_str(&format!(" data-start=\"{start}\""));
-            }
-            if let Some(end) = line.end {
-                attrs.push_str(&format!(" data-end=\"{end}\""));
-            }
-            if let Some(days) = line.active_days {
-                attrs.push_str(&format!(" data-days=\"{days}\""));
-            }
-        }
-        svg.push_str(&format!(
-            "<g class=\"{class}\" data-id=\"{label}\"{attrs} \
-             transform=\"translate({x},{y})\">\
-             <rect width=\"{w}\" height=\"{nh}\" rx=\"6\"/>\
-             <text x=\"{px}\" y=\"{ny}\">{label}</text>\
-             <text class=\"sub\" x=\"{px}\" y=\"{sy}\">{sub}</text>\
-             <title>{label}</title></g>\n",
-            class = class,
-            attrs = attrs,
-            w = width(name, task),
-            nh = NODE_H,
-            px = PAD_X,
-            ny = NAME_Y,
-            sy = SUB_Y,
-        ));
-    }
-    svg.push_str("</g>\n</svg>\n");
-
-    // The corner legend, one div per line so a future key joins as one more
-    // push: the estimate unit, always; then a line per colour the page
+    // The corner legend, one line per entry so a future key joins as one
+    // more push: the estimate unit, always; then a line per colour the page
     // actually shows — the muted done look, the in-progress blue, the
     // blocked orange, the red backbone — each only when something carries
-    // it.
-    let mut legend = format!(
-        "<div id=\"legend\">\n<div>unit: {}</div>\n",
-        escape(&plan.unit)
-    );
-    if tasks.values().any(|t| done(t)) {
-        legend.push_str("<div>grey: done</div>\n");
+    // it. The glue prints them as-is.
+    let mut legend = vec![format!("unit: {}", plan.unit)];
+    if tasks.values().any(|t| t.status == Some(Status::Done)) {
+        legend.push("grey: done".to_string());
     }
     if tasks.values().any(|t| t.status == Some(Status::InProgress)) {
-        legend.push_str("<div>blue: in-progress</div>\n");
+        legend.push("blue: in-progress".to_string());
     }
     if tasks.values().any(|t| t.status == Some(Status::Blocked)) {
-        legend.push_str("<div>orange: blocked</div>\n");
+        legend.push("orange: blocked".to_string());
     }
     if schedule.is_some_and(|s| !s.critical_path.is_empty()) {
-        legend.push_str("<div>red: critical path</div>\n");
+        legend.push("red: critical path".to_string());
     }
-    legend.push_str("</div>\n");
+
+    let data = json!({
+        // The ELK layered direction: only the axis changes with `Direction`.
+        "direction": match direction {
+            Direction::Tb => "DOWN",
+            Direction::Lr => "RIGHT",
+        },
+        "tasks": records,
+        "edges": edge_records,
+        "legend": legend,
+    });
+    let data_json = serde_json::to_string(&data).expect("the data block serializes");
+    // The block rides in a <script type="application/json"> element: the
+    // three characters that could close it or confuse the HTML parser are
+    // written as \u escapes inside the string literals, which JSON.parse
+    // reads back as the same characters.
+    let data_json = data_json
+        .replace('&', "\\u0026")
+        .replace('<', "\\u003c")
+        .replace('>', "\\u003e");
 
     let mut out = String::from(HTML_HEAD);
-    out.push_str(&legend);
-    out.push_str(&svg);
+    out.push_str("<script type=\"application/json\" id=\"graph-data\">");
+    out.push_str(&data_json);
+    out.push_str("</script>\n");
     out.push_str(HTML_TAIL);
     out
 }
 
-const HTML_HEAD: &str = r#"<!doctype html>
+/// The head of the HTML graph page: the shell (background, legend, detail
+/// card, the cytoscape container), the attribution note, and the three
+/// vendored bundles embedded verbatim — cytoscape first (it defines the
+/// global the wrapper registers against), then the ELK engine (it defines
+/// the `ELK` global the wrapper's UMD factory reads), then the wrapper.
+/// The bundles are pinned dist builds committed under `assets/`; nothing
+/// here fetches from the network.
+const HTML_HEAD: &str = concat!(
+    r#"<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -834,162 +702,276 @@ const HTML_HEAD: &str = r#"<!doctype html>
 <style>
 html, body { margin: 0; height: 100%; background: #fafaf7; }
 body { font-family: ui-monospace, Menlo, Consolas, monospace; overflow: hidden; }
-svg { width: 100vw; height: 100vh; display: block; cursor: grab; }
-svg:active { cursor: grabbing; }
+#cy { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 #legend { position: fixed; top: 12px; right: 16px; padding: 6px 10px; font-size: 11px; line-height: 1.7; color: #5b6470; background: rgba(255,255,255,0.9); border: 1px solid #c4cad2; border-radius: 6px; pointer-events: none; }
 #card { position: fixed; left: 16px; bottom: 16px; max-width: 360px; padding: 6px 10px; font-size: 11px; line-height: 1.7; color: #5b6470; background: rgba(255,255,255,0.9); border: 1px solid #c4cad2; border-radius: 6px; pointer-events: none; display: none; }
 #card.open { display: block; }
 #card .title { color: #1c2430; }
 #card .desc { white-space: pre-wrap; }
-.node { cursor: pointer; }
-.node rect { fill: #ffffff; stroke: #5b6470; stroke-width: 1.5; }
-.node text { fill: #1c2430; font-size: 12px; dominant-baseline: central; }
-.node text.sub { fill: #9aa4b2; font-size: 10px; }
-.node.done rect { fill: #f1f2ee; stroke: #c4cad2; }
-.node.done text { fill: #9aa4b2; }
-.node.in-progress rect { stroke: #2563eb; }
-.node.in-progress text { fill: #2563eb; }
-.node.blocked rect { stroke: #ea580c; }
-.node.blocked text { fill: #ea580c; }
-.edge { stroke: #9aa4b2; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
-.node.crit rect { stroke: #b91c1c; }
-.node.crit text { fill: #b91c1c; }
-.edge.crit { stroke: #b91c1c; marker-end: url(#arrow-crit); }
-svg.dim .node, svg.dim .edge { opacity: 0.15; }
-svg.dim .node.crit, svg.dim .edge.crit { opacity: 0.4; }
-svg.dim .node.hot, svg.dim .edge.hot { opacity: 1; }
-svg.dim .node.hot rect { fill: #fff3e0; stroke: #b45309; }
-svg.dim .node.hot text { fill: #7c3a00; }
-svg.dim .edge.hot { stroke: #b45309; marker-end: url(#arrow-hot); }
 </style>
 </head>
 <body>
 <div id="card"></div>
-"#;
+<div id="legend"></div>
+<div id="cy"></div>
+<!-- Rendered by planning-dsl. The graph draws with vendored cytoscape 3.34.4 (MIT),
+elkjs 0.12.1 (EPL-2.0) and cytoscape-elk 2.3.0 (MIT), embedded verbatim below; the
+bundles are pinned dist builds committed under assets/ with their license headers
+intact. This file is self-contained and opens offline. -->
+<script>
+"#,
+    include_str!("../assets/cytoscape-3.34.4.min.js"),
+    "\n</script>\n<script>\n",
+    include_str!("../assets/elk-0.12.1.bundled.js"),
+    "\n</script>\n<script>\n",
+    include_str!("../assets/cytoscape-elk-2.3.0.js"),
+    "\n</script>\n"
+);
 
+/// The tail of the HTML graph page: the JSON data block rides in ahead of
+/// this (Rust prints it between head and tail), then the init glue — the
+/// only hand-written JS, and it only configures and reads. The glue builds
+/// the cytoscape elements off the printed data, asks the ELK layered layout
+/// for positions along the printed direction, and wires the interactions:
+/// the hover glance (1-hop), the Shift transitive downstream
+/// (`successors()`), the click-to-pin card, the corner legend, fit on load,
+/// double-click and resize re-fit. Pan and wheel zoom are cytoscape's own.
 const HTML_TAIL: &str = r#"<script>
 (function () {
-  var svg = document.querySelector('svg');
-  var view = document.getElementById('view');
-  var card = document.getElementById('card');
-  var W = +svg.dataset.w, H = +svg.dataset.h;
-  var nodes = Array.prototype.slice.call(svg.querySelectorAll('.node'));
-  var edges = Array.prototype.slice.call(svg.querySelectorAll('.edge'));
-  var tx = 0, ty = 0, k = 1;
-  var pinned = null, down = null, hot = null, shift = false;
-  // The node elements and the downstream adjacency, keyed once off the
-  // printed data: the structure stays Rust's, the JS only reads it.
-  var byId = {}, downs = {};
+  var DATA = JSON.parse(document.getElementById('graph-data').textContent);
 
-  function apply() {
-    view.setAttribute('transform', 'translate(' + tx + ',' + ty + ') scale(' + k + ')');
-  }
-  function fit() {
-    k = Math.min((window.innerWidth - 48) / W, (window.innerHeight - 48) / H, 1);
-    if (!isFinite(k) || k <= 0) k = 1;
-    tx = (window.innerWidth - W * k) / 2;
-    ty = (window.innerHeight - H * k) / 2;
-    apply();
-  }
-  // The card: one line per printed attribute present, built with
+  // The card: one line per field present, built with
   // createElement/textContent — the description is plan prose, never
-  // markup.
-  function showCard(id) {
-    var n = byId[id];
+  // markup. Fixed bottom-left, part of the shell; hidden until opened.
+  var card = document.getElementById('card');
+  function cardLine(cls, text) {
+    var div = document.createElement('div');
+    if (cls) div.className = cls;
+    div.textContent = text;
+    card.appendChild(div);
+  }
+  function showCard(t) {
     while (card.firstChild) card.removeChild(card.firstChild);
-    var line = function (cls, text) {
-      var div = document.createElement('div');
-      if (cls) div.className = cls;
-      div.textContent = text;
-      card.appendChild(div);
-    };
-    line('title', id);
-    var status = n.getAttribute('data-status');
-    if (status) line(null, 'status: ' + status);
-    var desc = n.getAttribute('data-desc');
-    if (desc) line('desc', desc);
-    var executor = n.getAttribute('data-executor');
-    if (executor) line(null, 'executor: ' + executor);
-    var start = n.getAttribute('data-start'), end = n.getAttribute('data-end');
-    if (start && end) line(null, start + ' \u2192 ' + end);
-    var days = n.getAttribute('data-days');
-    if (days) line(null, 'active days: ' + days);
+    cardLine('title', t.name);
+    if (t.status) cardLine(null, 'status: ' + t.status);
+    if (t.description) cardLine('desc', t.description);
+    if (t.executor) cardLine(null, 'executor: ' + t.executor);
+    if (t.start && t.end) cardLine(null, t.start + ' \u2192 ' + t.end);
+    if (t.days) cardLine(null, 'active days: ' + t.days);
     card.classList.add('open');
   }
   function hideCard() {
     card.classList.remove('open');
   }
-  function setHot(id) {
-    hot = id;
-    svg.classList.add('dim');
-    var r = {};
-    r[id] = true;
-    if (shift) {
-      // Shift held: the full transitive downstream, BFS over the printed
-      // adjacency — what moves if this slips. Upstream stays out.
-      var queue = [id];
-      while (queue.length) {
-        var next = downs[queue.shift()] || [];
-        for (var i = 0; i < next.length; i++) {
-          if (!r[next[i]]) {
-            r[next[i]] = true;
-            queue.push(next[i]);
-          }
+
+  // The corner legend: the lines Rust decided on, one div per line.
+  var legend = document.getElementById('legend');
+  DATA.legend.forEach(function (line) {
+    var div = document.createElement('div');
+    div.textContent = line;
+    legend.appendChild(div);
+  });
+
+  // Node sizing. Cytoscape's own label sizing (width/height 'label') is
+  // deprecated in 3.34.4 and pads nothing — the text would sit on the
+  // border — so the glue measures the two label lines the same way
+  // cytoscape measures a label (a canvas 2d context, Math.ceil) and hands
+  // each node its box. This is sizing, not layout: the positions, the
+  // layering and the crossing order are ELK's.
+  var FONT_FAMILY = 'ui-monospace, Menlo, Consolas, monospace';
+  var FONT_SIZE = 11;
+  var LINE_HEIGHT = 1.3; // the stylesheet's line-height, matched here
+  var PAD_X = 10; // horizontal air inside the box, as the SVG renderer had
+  var PAD_Y = 7;  // vertical air: two lines at line-height 1.3 breathe in a 40px box
+  var MIN_W = 100;
+  var measure = document.createElement('canvas').getContext('2d');
+  measure.font = FONT_SIZE + 'px ' + FONT_FAMILY;
+  // The second label line: `role · estimate`, the estimate written bare
+  // ("6", "4.5"); without one, just the role. The unit is stated once, in
+  // the corner legend.
+  function subLabel(t) {
+    return t.estimate == null ? t.role : t.role + ' \u00b7 ' + t.estimate;
+  }
+  function boxWidth(t) {
+    // The box follows the longer of the two label lines.
+    var lines = [t.name, subLabel(t)];
+    var w = 0;
+    for (var i = 0; i < lines.length; i++) {
+      w = Math.max(w, Math.ceil(measure.measureText(lines[i]).width));
+    }
+    return Math.max(w + 2 * PAD_X, MIN_W);
+  }
+  var BOX_H = Math.ceil(FONT_SIZE * (1 + LINE_HEIGHT) + 2 * PAD_Y); // 40px
+
+  // The elements: one node per task record, one edge per printed edge —
+  // the classes additive, crit (the schedule-derived backbone) first, the
+  // status class second; todo declares neither.
+  var tasks = {};
+  var elements = [];
+  DATA.tasks.forEach(function (t) {
+    tasks[t.name] = t;
+    var classes = [];
+    if (t.crit) classes.push('crit');
+    if (t.status) classes.push(t.status);
+    elements.push({
+      data: {
+        id: t.name,
+        // The name over its `role · estimate` line: one label, wrapped at
+        // the newline, in a box sized to the longer line.
+        label: t.name + '\n' + subLabel(t),
+        w: boxWidth(t),
+        h: BOX_H
+      },
+      classes: classes.join(' ')
+    });
+  });
+  DATA.edges.forEach(function (e, i) {
+    elements.push({
+      data: { id: 'e' + i, source: e.from, target: e.to },
+      classes: e.crit ? 'crit' : ''
+    });
+  });
+
+  var FIT_PAD = 48; // the fit margin the hand-rolled renderer used
+  function fit() { cy.fit(FIT_PAD); }
+
+  var cy = window.cytoscape({
+    container: document.getElementById('cy'),
+    elements: elements,
+    // A read-only view: the positions are ELK's, nothing grabs a node.
+    autoungrabify: true,
+    layout: {
+      name: 'elk',
+      fit: false, // the glue fits, at stop, with its own padding
+      padding: FIT_PAD,
+      elk: {
+        algorithm: 'layered',
+        'elk.direction': DATA.direction,
+        // Spacing, visibly airy — the hand-rolled renderer was widened
+        // 1.5x at the maintainer's request (H_GAP 60 -> 90, ROW_H 56 ->
+        // 84); ELK gets that air, and a little more layer to layer.
+        'elk.spacing.nodeNode': 90,
+        'elk.layered.spacing.nodeNodeBetweenLayers': 100
+      },
+      stop: function () { fit(); }
+    },
+    style: [
+      {
+        selector: 'node',
+        style: {
+          shape: 'round-rectangle',
+          width: 'data(w)',
+          height: 'data(h)',
+          'background-color': '#ffffff',
+          'border-width': 1.5,
+          'border-color': '#5b6470',
+          label: 'data(label)',
+          'text-wrap': 'wrap',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'line-height': LINE_HEIGHT,
+          'font-family': FONT_FAMILY,
+          'font-size': FONT_SIZE,
+          color: '#1c2430'
+        }
+      },
+      // The muted done look: the node keeps its place and its edges.
+      {
+        selector: 'node.done',
+        style: {
+          'background-color': '#f1f2ee',
+          'border-color': '#c4cad2',
+          color: '#9aa4b2'
+        }
+      },
+      { selector: 'node.in-progress', style: { 'border-color': '#2563eb', color: '#2563eb' } },
+      { selector: 'node.blocked', style: { 'border-color': '#ea580c', color: '#ea580c' } },
+      // Crit is the backbone: declared after the status colours, it wins
+      // over them; todo keeps the default look.
+      { selector: 'node.crit', style: { 'border-color': '#b91c1c', color: '#b91c1c' } },
+      {
+        selector: 'edge',
+        style: {
+          width: 1.5,
+          'line-color': '#9aa4b2',
+          'target-arrow-shape': 'triangle',
+          'target-arrow-color': '#9aa4b2',
+          'curve-style': 'straight'
+        }
+      },
+      { selector: 'edge.crit', style: { 'line-color': '#b91c1c', 'target-arrow-color': '#b91c1c' } },
+      // The dim state: everything recedes; the crit backbone holds 0.4 so
+      // it stays readable while a neighbourhood is inspected.
+      { selector: '.dim', style: { opacity: 0.15 } },
+      { selector: '.dim.crit', style: { opacity: 0.4 } },
+      // The hot neighbourhood: the orange of the glance.
+      {
+        selector: 'node.hot',
+        style: {
+          'background-color': '#fff3e0',
+          'border-color': '#b45309',
+          color: '#7c3a00',
+          opacity: 1
+        }
+      },
+      {
+        selector: 'edge.hot',
+        style: {
+          'line-color': '#b45309',
+          'target-arrow-color': '#b45309',
+          opacity: 1
         }
       }
-    } else {
-      // The cheap glance: the node and whatever touches it.
-      edges.forEach(function (e) {
-        var f = e.getAttribute('data-from'), t = e.getAttribute('data-to');
-        if (f === id) r[t] = true;
-        if (t === id) r[f] = true;
-      });
-    }
-    nodes.forEach(function (m) {
-      if (r[m.getAttribute('data-id')]) m.classList.add('hot');
-    });
-    edges.forEach(function (e) {
-      var f = e.getAttribute('data-from'), t = e.getAttribute('data-to');
-      // Shift: both ends reachable — with the closure that is exactly
-      // "on some path from the node downstream". One-hop: any edge
-      // touching the node.
-      if (shift ? r[f] && r[t] : f === id || t === id) e.classList.add('hot');
-    });
-    showCard(id);
+    ]
+  });
+
+  // The glance and the closure. `hot` is the node whose highlight stands —
+  // the one under the pointer, or the pin restored after leaving it.
+  var shift = false, hot = null, pinned = null;
+  function setHot(node) {
+    // Hovering overrides whatever stood before it; leaving restores the
+    // pin — the card rides the same override.
+    cy.elements().removeClass('hot dim');
+    hot = node;
+    cy.elements().addClass('dim');
+    // The cheap glance: the node and whatever touches it. Shift held: the
+    // full transitive downstream — what moves if this slips. Upstream
+    // stays out; the critical path tells that story.
+    var eles = shift ? node.union(node.successors()) : node.closedNeighbourhood();
+    eles.addClass('hot');
+    showCard(tasks[node.id()]);
   }
   function clearHot() {
     hot = null;
-    svg.classList.remove('dim');
+    cy.elements().removeClass('hot dim');
     hideCard();
-    nodes.forEach(function (m) { m.classList.remove('hot'); });
-    edges.forEach(function (e) { e.classList.remove('hot'); });
   }
   // The pin: a click leaves a node's highlight standing after mouseleave.
-  // Hovering overrides it while over a node; leaving restores it — the
-  // card rides the same override.
   function applyPin() {
     clearHot();
     if (pinned !== null) setHot(pinned);
   }
   // A shift press or release re-runs the standing highlight under the new
-  // mode: a pinned node grows the subtree while held and collapses to the
-  // 1-hop glance on release.
+  // mode: it grows to the subtree while held and collapses to the 1-hop
+  // glance on release.
   function setShift(on) {
     if (shift === on) return;
     shift = on;
-    var id = hot;
-    if (id !== null) {
-      clearHot();
-      setHot(id);
-    }
+    if (hot !== null) setHot(hot);
   }
 
-  nodes.forEach(function (node) {
-    var id = node.getAttribute('data-id');
-    byId[id] = node;
-    downs[id] = (node.getAttribute('data-down') || '').split(' ').filter(Boolean);
-    node.addEventListener('mouseenter', function () { setHot(id); });
-    node.addEventListener('mouseleave', applyPin);
+  cy.on('mouseover', 'node', function (evt) { setHot(evt.target); });
+  cy.on('mouseout', 'node', function () { applyPin(); });
+  cy.on('tap', 'node', function (evt) {
+    pinned = (pinned !== null && pinned.id() === evt.target.id()) ? null : evt.target;
+    applyPin();
+  });
+  // A tap on the background clears the pin.
+  cy.on('tap', function (evt) {
+    if (evt.target === cy) {
+      pinned = null;
+      applyPin();
+    }
   });
 
   window.addEventListener('keydown', function (ev) {
@@ -999,50 +981,8 @@ const HTML_TAIL: &str = r#"<script>
     if (ev.key === 'Shift') setShift(false);
   });
 
-  svg.addEventListener('wheel', function (ev) {
-    ev.preventDefault();
-    var r = svg.getBoundingClientRect();
-    var f = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
-    var mx = ev.clientX - r.left, my = ev.clientY - r.top;
-    tx = mx - (mx - tx) * f;
-    ty = my - (my - ty) * f;
-    k *= f;
-    apply();
-  }, { passive: false });
-
-  var drag = null;
-  svg.addEventListener('pointerdown', function (ev) {
-    if (ev.button !== 0) return;
-    drag = { x: ev.clientX, y: ev.clientY, tx: tx, ty: ty };
-    // The pointer is captured to the svg on down, so the up targets the
-    // svg; the node a click means is read off the down's target.
-    down = { x: ev.clientX, y: ev.clientY, target: ev.target };
-    svg.setPointerCapture(ev.pointerId);
-  });
-  svg.addEventListener('pointermove', function (ev) {
-    if (!drag) return;
-    tx = drag.tx + ev.clientX - drag.x;
-    ty = drag.ty + ev.clientY - drag.y;
-    apply();
-  });
-  svg.addEventListener('pointerup', function (ev) {
-    // A click is an up that stayed within a few pixels of its down; a pan
-    // drag never moves the pin. Background (any non-node) clears it.
-    if (down && ev.button === 0) {
-      var dx = ev.clientX - down.x, dy = ev.clientY - down.y;
-      if (dx * dx + dy * dy <= 16) {
-        var node = down.target.closest('.node');
-        var id = node ? node.getAttribute('data-id') : null;
-        pinned = id === pinned ? null : id;
-        applyPin();
-      }
-    }
-    drag = null;
-    down = null;
-  });
-  svg.addEventListener('dblclick', fit);
-  window.addEventListener('resize', fit);
-  fit();
+  document.getElementById('cy').addEventListener('dblclick', fit);
+  window.addEventListener('resize', function () { cy.resize(); fit(); });
 })();
 </script>
 </body>

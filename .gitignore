@@ -29,6 +29,7 @@
 !/src/
 !/tests/
 !/schema/
+!/assets/
 !/docs/
 
 # Ignore noise:
