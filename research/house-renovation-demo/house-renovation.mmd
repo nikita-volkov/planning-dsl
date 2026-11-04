@@ -1,0 +1,67 @@
+flowchart TD
+    design-project["design-project"]
+    demolition["demolition"]
+    partitions-first-floor["partitions-first-floor"]
+    partitions-second-floor["partitions-second-floor"]
+    ventilation-ducts["ventilation-ducts"]
+    rough-electrical-first-floor["rough-electrical-first-floor"]
+    rough-electrical-second-floor["rough-electrical-second-floor"]
+    rough-plumbing-first-floor["rough-plumbing-first-floor"]
+    rough-plumbing-second-floor["rough-plumbing-second-floor"]
+    floor-screed-first-floor["floor-screed-first-floor"]
+    floor-screed-second-floor["floor-screed-second-floor"]
+    plaster-walls-first-floor["plaster-walls-first-floor"]
+    plaster-walls-second-floor["plaster-walls-second-floor"]
+    select-and-order-materials["select-and-order-materials"]
+    lighting-scenario["lighting-scenario"]
+    tile-bathrooms-first-floor["tile-bathrooms-first-floor"]
+    tile-bathrooms-second-floor["tile-bathrooms-second-floor"]
+    paint-walls-first-floor["paint-walls-first-floor"]
+    paint-walls-second-floor["paint-walls-second-floor"]
+    interior-doors-install["interior-doors-install"]
+    floor-covering-first-floor["floor-covering-first-floor"]
+    floor-covering-second-floor["floor-covering-second-floor"]
+    finish-electrical["finish-electrical"]
+    plumbing-fixtures-install["plumbing-fixtures-install"]
+    final-cleaning-and-acceptance["final-cleaning-and-acceptance"]
+    demolition --> partitions-first-floor
+    demolition --> partitions-second-floor
+    demolition --> ventilation-ducts
+    design-project --> lighting-scenario
+    design-project --> select-and-order-materials
+    finish-electrical --> final-cleaning-and-acceptance
+    floor-covering-first-floor --> final-cleaning-and-acceptance
+    floor-covering-second-floor --> final-cleaning-and-acceptance
+    floor-screed-first-floor --> floor-covering-first-floor
+    floor-screed-first-floor --> interior-doors-install
+    floor-screed-first-floor --> tile-bathrooms-first-floor
+    floor-screed-second-floor --> floor-covering-second-floor
+    floor-screed-second-floor --> interior-doors-install
+    floor-screed-second-floor --> tile-bathrooms-second-floor
+    interior-doors-install --> final-cleaning-and-acceptance
+    paint-walls-first-floor --> finish-electrical
+    paint-walls-first-floor --> floor-covering-first-floor
+    paint-walls-second-floor --> finish-electrical
+    paint-walls-second-floor --> floor-covering-second-floor
+    partitions-first-floor --> rough-electrical-first-floor
+    partitions-first-floor --> rough-plumbing-first-floor
+    partitions-second-floor --> rough-electrical-second-floor
+    partitions-second-floor --> rough-plumbing-second-floor
+    plaster-walls-first-floor --> paint-walls-first-floor
+    plaster-walls-first-floor --> tile-bathrooms-first-floor
+    plaster-walls-second-floor --> paint-walls-second-floor
+    plaster-walls-second-floor --> tile-bathrooms-second-floor
+    plumbing-fixtures-install --> final-cleaning-and-acceptance
+    rough-electrical-first-floor --> plaster-walls-first-floor
+    rough-electrical-second-floor --> plaster-walls-second-floor
+    rough-plumbing-first-floor --> floor-screed-first-floor
+    rough-plumbing-first-floor --> plaster-walls-first-floor
+    rough-plumbing-second-floor --> floor-screed-second-floor
+    rough-plumbing-second-floor --> plaster-walls-second-floor
+    tile-bathrooms-first-floor --> finish-electrical
+    tile-bathrooms-first-floor --> plumbing-fixtures-install
+    tile-bathrooms-second-floor --> finish-electrical
+    tile-bathrooms-second-floor --> plumbing-fixtures-install
+    ventilation-ducts --> floor-screed-first-floor
+    ventilation-ducts --> paint-walls-first-floor
+    ventilation-ducts --> paint-walls-second-floor

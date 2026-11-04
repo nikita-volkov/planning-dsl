@@ -1,0 +1,21 @@
+# no-executor.yaml — the roster-gate demo: the validator only warns
+# about a role nobody fills (young plans have partial rosters), the
+# scheduler refuses — there is nobody to assign.
+unit: person-hours
+start: 2026-11-05
+
+roles:
+  finisher: finishes
+  stair-fitter: fits the staircase balusters
+
+tasks:
+  plaster-walls-first-floor:
+    role: finisher
+    estimate: 56
+  fit-the-staircase:
+    role: stair-fitter         # nobody fills this role
+    estimate: 24
+
+executors:
+  mikhail:
+    roles: [finisher]

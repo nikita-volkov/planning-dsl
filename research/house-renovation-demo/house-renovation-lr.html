@@ -1,0 +1,207 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>task dependency graph</title>
+<style>
+html, body { margin: 0; height: 100%; background: #fafaf7; }
+body { font-family: ui-monospace, Menlo, Consolas, monospace; overflow: hidden; }
+svg { width: 100vw; height: 100vh; display: block; cursor: grab; }
+svg:active { cursor: grabbing; }
+#legend { position: fixed; top: 12px; right: 16px; padding: 6px 10px; font-size: 11px; line-height: 1.7; color: #5b6470; background: rgba(255,255,255,0.9); border: 1px solid #c4cad2; border-radius: 6px; pointer-events: none; }
+.node { cursor: pointer; }
+.node rect { fill: #ffffff; stroke: #5b6470; stroke-width: 1.5; }
+.node text { fill: #1c2430; font-size: 12px; dominant-baseline: central; }
+.node text.sub { fill: #9aa4b2; font-size: 10px; }
+.node.done rect { fill: #f1f2ee; stroke: #c4cad2; }
+.node.done text { fill: #9aa4b2; }
+.edge { stroke: #9aa4b2; stroke-width: 1.5; fill: none; }
+.node.crit rect { stroke: #b91c1c; }
+.node.crit text { fill: #b91c1c; }
+.edge.crit { stroke: #b91c1c; }
+svg.dim .node, svg.dim .edge { opacity: 0.15; }
+svg.dim .node.crit, svg.dim .edge.crit { opacity: 0.4; }
+svg.dim .node.hot, svg.dim .edge.hot { opacity: 1; }
+svg.dim .node.hot rect { fill: #fff3e0; stroke: #b45309; }
+svg.dim .node.hot text { fill: #7c3a00; }
+svg.dim .edge.hot { stroke: #b45309; }
+</style>
+</head>
+<body>
+<div id="legend">
+<div>unit: person-hours</div>
+<div>grey: done</div>
+<div>red: critical path</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" width="2208" height="328" data-w="2208" data-h="328">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6470"/></marker></defs>
+<g id="view">
+<path class="edge" data-from="demolition" data-to="partitions-first-floor" marker-end="url(#arrow)" d="M 148,184 C 242,184 242,44 336,44"/>
+<path class="edge" data-from="demolition" data-to="partitions-second-floor" marker-end="url(#arrow)" d="M 148,184 C 242,184 242,100 336,100"/>
+<path class="edge" data-from="demolition" data-to="ventilation-ducts" marker-end="url(#arrow)" d="M 148,184 C 242,184 242,156 336,156"/>
+<path class="edge" data-from="design-project" data-to="lighting-scenario" marker-end="url(#arrow)" d="M 156,128 C 246,128 246,268 336,268"/>
+<path class="edge" data-from="design-project" data-to="select-and-order-materials" marker-end="url(#arrow)" d="M 156,128 C 246,128 246,212 336,212"/>
+<path class="edge crit" data-from="finish-electrical" data-to="final-cleaning-and-acceptance" marker-end="url(#arrow)" d="M 1740,184 C 1818,184 1818,156 1896,156"/>
+<path class="edge" data-from="floor-covering-first-floor" data-to="final-cleaning-and-acceptance" marker-end="url(#arrow)" d="M 1812,72 C 1854,72 1854,156 1896,156"/>
+<path class="edge" data-from="floor-covering-second-floor" data-to="final-cleaning-and-acceptance" marker-end="url(#arrow)" d="M 1820,128 C 1858,128 1858,156 1896,156"/>
+<path class="edge" data-from="floor-screed-first-floor" data-to="floor-covering-first-floor" marker-end="url(#arrow)" d="M 1172,72 C 1378,72 1378,72 1584,72"/>
+<path class="edge" data-from="floor-screed-first-floor" data-to="interior-doors-install" marker-end="url(#arrow)" d="M 1172,72 C 1222,72 1222,268 1272,268"/>
+<path class="edge" data-from="floor-screed-first-floor" data-to="tile-bathrooms-first-floor" marker-end="url(#arrow)" d="M 1172,72 C 1222,72 1222,44 1272,44"/>
+<path class="edge" data-from="floor-screed-second-floor" data-to="floor-covering-second-floor" marker-end="url(#arrow)" d="M 1180,128 C 1382,128 1382,128 1584,128"/>
+<path class="edge" data-from="floor-screed-second-floor" data-to="interior-doors-install" marker-end="url(#arrow)" d="M 1180,128 C 1226,128 1226,268 1272,268"/>
+<path class="edge" data-from="floor-screed-second-floor" data-to="tile-bathrooms-second-floor" marker-end="url(#arrow)" d="M 1180,128 C 1226,128 1226,100 1272,100"/>
+<path class="edge" data-from="interior-doors-install" data-to="final-cleaning-and-acceptance" marker-end="url(#arrow)" d="M 1468,268 C 1682,268 1682,156 1896,156"/>
+<path class="edge" data-from="paint-walls-first-floor" data-to="finish-electrical" marker-end="url(#arrow)" d="M 1476,156 C 1530,156 1530,184 1584,184"/>
+<path class="edge" data-from="paint-walls-first-floor" data-to="floor-covering-first-floor" marker-end="url(#arrow)" d="M 1476,156 C 1530,156 1530,72 1584,72"/>
+<path class="edge crit" data-from="paint-walls-second-floor" data-to="finish-electrical" marker-end="url(#arrow)" d="M 1484,212 C 1534,212 1534,184 1584,184"/>
+<path class="edge" data-from="paint-walls-second-floor" data-to="floor-covering-second-floor" marker-end="url(#arrow)" d="M 1484,212 C 1534,212 1534,128 1584,128"/>
+<path class="edge" data-from="partitions-first-floor" data-to="rough-electrical-first-floor" marker-end="url(#arrow)" d="M 532,44 C 590,44 590,72 648,72"/>
+<path class="edge" data-from="partitions-first-floor" data-to="rough-plumbing-first-floor" marker-end="url(#arrow)" d="M 532,44 C 590,44 590,184 648,184"/>
+<path class="edge crit" data-from="partitions-second-floor" data-to="rough-electrical-second-floor" marker-end="url(#arrow)" d="M 540,100 C 594,100 594,128 648,128"/>
+<path class="edge" data-from="partitions-second-floor" data-to="rough-plumbing-second-floor" marker-end="url(#arrow)" d="M 540,100 C 594,100 594,240 648,240"/>
+<path class="edge" data-from="plaster-walls-first-floor" data-to="paint-walls-first-floor" marker-end="url(#arrow)" d="M 1180,184 C 1226,184 1226,156 1272,156"/>
+<path class="edge" data-from="plaster-walls-first-floor" data-to="tile-bathrooms-first-floor" marker-end="url(#arrow)" d="M 1180,184 C 1226,184 1226,44 1272,44"/>
+<path class="edge crit" data-from="plaster-walls-second-floor" data-to="paint-walls-second-floor" marker-end="url(#arrow)" d="M 1188,240 C 1230,240 1230,212 1272,212"/>
+<path class="edge" data-from="plaster-walls-second-floor" data-to="tile-bathrooms-second-floor" marker-end="url(#arrow)" d="M 1188,240 C 1230,240 1230,100 1272,100"/>
+<path class="edge" data-from="plumbing-fixtures-install" data-to="final-cleaning-and-acceptance" marker-end="url(#arrow)" d="M 1804,240 C 1850,240 1850,156 1896,156"/>
+<path class="edge" data-from="rough-electrical-first-floor" data-to="plaster-walls-first-floor" marker-end="url(#arrow)" d="M 892,72 C 926,72 926,184 960,184"/>
+<path class="edge crit" data-from="rough-electrical-second-floor" data-to="plaster-walls-second-floor" marker-end="url(#arrow)" d="M 900,128 C 930,128 930,240 960,240"/>
+<path class="edge" data-from="rough-plumbing-first-floor" data-to="floor-screed-first-floor" marker-end="url(#arrow)" d="M 876,184 C 918,184 918,72 960,72"/>
+<path class="edge" data-from="rough-plumbing-first-floor" data-to="plaster-walls-first-floor" marker-end="url(#arrow)" d="M 876,184 C 918,184 918,184 960,184"/>
+<path class="edge" data-from="rough-plumbing-second-floor" data-to="floor-screed-second-floor" marker-end="url(#arrow)" d="M 884,240 C 922,240 922,128 960,128"/>
+<path class="edge" data-from="rough-plumbing-second-floor" data-to="plaster-walls-second-floor" marker-end="url(#arrow)" d="M 884,240 C 922,240 922,240 960,240"/>
+<path class="edge" data-from="tile-bathrooms-first-floor" data-to="finish-electrical" marker-end="url(#arrow)" d="M 1500,44 C 1542,44 1542,184 1584,184"/>
+<path class="edge" data-from="tile-bathrooms-first-floor" data-to="plumbing-fixtures-install" marker-end="url(#arrow)" d="M 1500,44 C 1542,44 1542,240 1584,240"/>
+<path class="edge" data-from="tile-bathrooms-second-floor" data-to="finish-electrical" marker-end="url(#arrow)" d="M 1508,100 C 1546,100 1546,184 1584,184"/>
+<path class="edge" data-from="tile-bathrooms-second-floor" data-to="plumbing-fixtures-install" marker-end="url(#arrow)" d="M 1508,100 C 1546,100 1546,240 1584,240"/>
+<path class="edge" data-from="ventilation-ducts" data-to="floor-screed-first-floor" marker-end="url(#arrow)" d="M 492,156 C 726,156 726,72 960,72"/>
+<path class="edge" data-from="ventilation-ducts" data-to="paint-walls-first-floor" marker-end="url(#arrow)" d="M 492,156 C 882,156 882,156 1272,156"/>
+<path class="edge" data-from="ventilation-ducts" data-to="paint-walls-second-floor" marker-end="url(#arrow)" d="M 492,156 C 882,156 882,212 1272,212"/>
+<g class="node done" data-id="design-project" transform="translate(24,108)"><rect width="132" height="40" rx="6"/><text x="10" y="13">design-project</text><text class="sub" x="10" y="28">designer · 40</text><title>design-project</title></g>
+<g class="node done" data-id="demolition" transform="translate(24,164)"><rect width="124" height="40" rx="6"/><text x="10" y="13">demolition</text><text class="sub" x="10" y="28">finisher · 40</text><title>demolition</title></g>
+<g class="node" data-id="partitions-first-floor" transform="translate(336,24)"><rect width="196" height="40" rx="6"/><text x="10" y="13">partitions-first-floor</text><text class="sub" x="10" y="28">finisher · 40</text><title>partitions-first-floor</title></g>
+<g class="node crit" data-id="partitions-second-floor" transform="translate(336,80)"><rect width="204" height="40" rx="6"/><text x="10" y="13">partitions-second-floor</text><text class="sub" x="10" y="28">finisher · 32</text><title>partitions-second-floor</title></g>
+<g class="node" data-id="ventilation-ducts" transform="translate(336,136)"><rect width="156" height="40" rx="6"/><text x="10" y="13">ventilation-ducts</text><text class="sub" x="10" y="28">plumber · 24</text><title>ventilation-ducts</title></g>
+<g class="node" data-id="rough-electrical-first-floor" transform="translate(648,52)"><rect width="244" height="40" rx="6"/><text x="10" y="13">rough-electrical-first-floor</text><text class="sub" x="10" y="28">electrician · 40</text><title>rough-electrical-first-floor</title></g>
+<g class="node crit" data-id="rough-electrical-second-floor" transform="translate(648,108)"><rect width="252" height="40" rx="6"/><text x="10" y="13">rough-electrical-second-floor</text><text class="sub" x="10" y="28">electrician · 36</text><title>rough-electrical-second-floor</title></g>
+<g class="node" data-id="rough-plumbing-first-floor" transform="translate(648,164)"><rect width="228" height="40" rx="6"/><text x="10" y="13">rough-plumbing-first-floor</text><text class="sub" x="10" y="28">plumber · 32</text><title>rough-plumbing-first-floor</title></g>
+<g class="node" data-id="rough-plumbing-second-floor" transform="translate(648,220)"><rect width="236" height="40" rx="6"/><text x="10" y="13">rough-plumbing-second-floor</text><text class="sub" x="10" y="28">plumber · 28</text><title>rough-plumbing-second-floor</title></g>
+<g class="node" data-id="floor-screed-first-floor" transform="translate(960,52)"><rect width="212" height="40" rx="6"/><text x="10" y="13">floor-screed-first-floor</text><text class="sub" x="10" y="28">finisher · 40</text><title>floor-screed-first-floor</title></g>
+<g class="node" data-id="floor-screed-second-floor" transform="translate(960,108)"><rect width="220" height="40" rx="6"/><text x="10" y="13">floor-screed-second-floor</text><text class="sub" x="10" y="28">finisher · 32</text><title>floor-screed-second-floor</title></g>
+<g class="node" data-id="plaster-walls-first-floor" transform="translate(960,164)"><rect width="220" height="40" rx="6"/><text x="10" y="13">plaster-walls-first-floor</text><text class="sub" x="10" y="28">finisher · 56</text><title>plaster-walls-first-floor</title></g>
+<g class="node crit" data-id="plaster-walls-second-floor" transform="translate(960,220)"><rect width="228" height="40" rx="6"/><text x="10" y="13">plaster-walls-second-floor</text><text class="sub" x="10" y="28">finisher · 48</text><title>plaster-walls-second-floor</title></g>
+<g class="node" data-id="select-and-order-materials" transform="translate(336,192)"><rect width="228" height="40" rx="6"/><text x="10" y="13">select-and-order-materials</text><text class="sub" x="10" y="28">designer · 24</text><title>select-and-order-materials</title></g>
+<g class="node" data-id="lighting-scenario" transform="translate(336,248)"><rect width="156" height="40" rx="6"/><text x="10" y="13">lighting-scenario</text><text class="sub" x="10" y="28">designer · 16</text><title>lighting-scenario</title></g>
+<g class="node" data-id="tile-bathrooms-first-floor" transform="translate(1272,24)"><rect width="228" height="40" rx="6"/><text x="10" y="13">tile-bathrooms-first-floor</text><text class="sub" x="10" y="28">tiler · 48</text><title>tile-bathrooms-first-floor</title></g>
+<g class="node" data-id="tile-bathrooms-second-floor" transform="translate(1272,80)"><rect width="236" height="40" rx="6"/><text x="10" y="13">tile-bathrooms-second-floor</text><text class="sub" x="10" y="28">tiler · 40</text><title>tile-bathrooms-second-floor</title></g>
+<g class="node" data-id="paint-walls-first-floor" transform="translate(1272,136)"><rect width="204" height="40" rx="6"/><text x="10" y="13">paint-walls-first-floor</text><text class="sub" x="10" y="28">finisher · 48</text><title>paint-walls-first-floor</title></g>
+<g class="node crit" data-id="paint-walls-second-floor" transform="translate(1272,192)"><rect width="212" height="40" rx="6"/><text x="10" y="13">paint-walls-second-floor</text><text class="sub" x="10" y="28">finisher · 40</text><title>paint-walls-second-floor</title></g>
+<g class="node" data-id="interior-doors-install" transform="translate(1272,248)"><rect width="196" height="40" rx="6"/><text x="10" y="13">interior-doors-install</text><text class="sub" x="10" y="28">joiner · 24</text><title>interior-doors-install</title></g>
+<g class="node" data-id="floor-covering-first-floor" transform="translate(1584,52)"><rect width="228" height="40" rx="6"/><text x="10" y="13">floor-covering-first-floor</text><text class="sub" x="10" y="28">joiner · 32</text><title>floor-covering-first-floor</title></g>
+<g class="node" data-id="floor-covering-second-floor" transform="translate(1584,108)"><rect width="236" height="40" rx="6"/><text x="10" y="13">floor-covering-second-floor</text><text class="sub" x="10" y="28">joiner · 24</text><title>floor-covering-second-floor</title></g>
+<g class="node crit" data-id="finish-electrical" transform="translate(1584,164)"><rect width="156" height="40" rx="6"/><text x="10" y="13">finish-electrical</text><text class="sub" x="10" y="28">electrician · 32</text><title>finish-electrical</title></g>
+<g class="node" data-id="plumbing-fixtures-install" transform="translate(1584,220)"><rect width="220" height="40" rx="6"/><text x="10" y="13">plumbing-fixtures-install</text><text class="sub" x="10" y="28">plumber · 24</text><title>plumbing-fixtures-install</title></g>
+<g class="node crit" data-id="final-cleaning-and-acceptance" transform="translate(1896,136)"><rect width="252" height="40" rx="6"/><text x="10" y="13">final-cleaning-and-acceptance</text><text class="sub" x="10" y="28">finisher · 24</text><title>final-cleaning-and-acceptance</title></g>
+</g>
+</svg>
+<script>
+(function () {
+  var svg = document.querySelector('svg');
+  var view = document.getElementById('view');
+  var W = +svg.dataset.w, H = +svg.dataset.h;
+  var nodes = Array.prototype.slice.call(svg.querySelectorAll('.node'));
+  var edges = Array.prototype.slice.call(svg.querySelectorAll('.edge'));
+  var tx = 0, ty = 0, k = 1;
+  var pinned = null, down = null;
+
+  function apply() {
+    view.setAttribute('transform', 'translate(' + tx + ',' + ty + ') scale(' + k + ')');
+  }
+  function fit() {
+    k = Math.min((window.innerWidth - 48) / W, (window.innerHeight - 48) / H, 1);
+    if (!isFinite(k) || k <= 0) k = 1;
+    tx = (window.innerWidth - W * k) / 2;
+    ty = (window.innerHeight - H * k) / 2;
+    apply();
+  }
+  function setHot(id) {
+    svg.classList.add('dim');
+    nodes.forEach(function (m) {
+      if (m.getAttribute('data-id') === id) m.classList.add('hot');
+    });
+    edges.forEach(function (e) {
+      var f = e.getAttribute('data-from'), t = e.getAttribute('data-to');
+      if (f !== id && t !== id) return;
+      e.classList.add('hot');
+      var other = f === id ? t : f;
+      nodes.forEach(function (m) {
+        if (m.getAttribute('data-id') === other) m.classList.add('hot');
+      });
+    });
+  }
+  function clearHot() {
+    svg.classList.remove('dim');
+    nodes.forEach(function (m) { m.classList.remove('hot'); });
+    edges.forEach(function (e) { e.classList.remove('hot'); });
+  }
+  // The pin: a click leaves a node's highlight standing after mouseleave.
+  // Hovering overrides it while over a node; leaving restores it.
+  function applyPin() {
+    clearHot();
+    if (pinned !== null) setHot(pinned);
+  }
+
+  nodes.forEach(function (node) {
+    var id = node.getAttribute('data-id');
+    node.addEventListener('mouseenter', function () { setHot(id); });
+    node.addEventListener('mouseleave', applyPin);
+  });
+
+  svg.addEventListener('wheel', function (ev) {
+    ev.preventDefault();
+    var r = svg.getBoundingClientRect();
+    var f = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
+    var mx = ev.clientX - r.left, my = ev.clientY - r.top;
+    tx = mx - (mx - tx) * f;
+    ty = my - (my - ty) * f;
+    k *= f;
+    apply();
+  }, { passive: false });
+
+  var drag = null;
+  svg.addEventListener('pointerdown', function (ev) {
+    if (ev.button !== 0) return;
+    drag = { x: ev.clientX, y: ev.clientY, tx: tx, ty: ty };
+    // The pointer is captured to the svg on down, so the up targets the
+    // svg; the node a click means is read off the down's target.
+    down = { x: ev.clientX, y: ev.clientY, target: ev.target };
+    svg.setPointerCapture(ev.pointerId);
+  });
+  svg.addEventListener('pointermove', function (ev) {
+    if (!drag) return;
+    tx = drag.tx + ev.clientX - drag.x;
+    ty = drag.ty + ev.clientY - drag.y;
+    apply();
+  });
+  svg.addEventListener('pointerup', function (ev) {
+    // A click is an up that stayed within a few pixels of its down; a pan
+    // drag never moves the pin. Background (any non-node) clears it.
+    if (down && ev.button === 0) {
+      var dx = ev.clientX - down.x, dy = ev.clientY - down.y;
+      if (dx * dx + dy * dy <= 16) {
+        var node = down.target.closest('.node');
+        var id = node ? node.getAttribute('data-id') : null;
+        pinned = id === pinned ? null : id;
+        applyPin();
+      }
+    }
+    drag = null;
+    down = null;
+  });
+  svg.addEventListener('dblclick', fit);
+  window.addEventListener('resize', fit);
+  fit();
+})();
+</script>
+</body>
+</html>

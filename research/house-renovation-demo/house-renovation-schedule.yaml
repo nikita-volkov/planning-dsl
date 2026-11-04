@@ -1,0 +1,155 @@
+start: 2026-11-05
+deadline: 2027-02-26
+plan-end: 2027-02-03
+slippage-days: 0
+latest-start: 2026-11-28
+critical-path:
+- partitions-second-floor
+- rough-electrical-second-floor
+- plaster-walls-second-floor
+- paint-walls-second-floor
+- finish-electrical
+- final-cleaning-and-acceptance
+tasks:
+  design-project:
+    status: done
+  demolition:
+    status: done
+  partitions-first-floor:
+    executor: mikhail
+    start: 2026-11-05
+    end: 2026-11-12
+    active-days: 7
+    status: in-progress
+  partitions-second-floor:
+    executor: mikhail
+    start: 2026-11-13
+    end: 2026-11-19
+    active-days: 6
+    status: todo
+  ventilation-ducts:
+    executor: sergey
+    start: 2026-11-05
+    end: 2026-11-07
+    active-days: 3
+    status: todo
+  rough-electrical-first-floor:
+    executor: viktor
+    start: 2026-11-13
+    end: 2026-11-18
+    active-days: 5
+    status: todo
+  rough-electrical-second-floor:
+    executor: viktor
+    start: 2026-11-20
+    end: 2026-11-25
+    active-days: 5
+    status: todo
+  rough-plumbing-first-floor:
+    executor: sergey
+    start: 2026-11-13
+    end: 2026-11-17
+    active-days: 4
+    status: todo
+  rough-plumbing-second-floor:
+    executor: sergey
+    start: 2026-11-20
+    end: 2026-11-24
+    active-days: 4
+    status: todo
+  floor-screed-first-floor:
+    executor: mikhail
+    start: 2026-12-02
+    end: 2026-12-09
+    active-days: 7
+    status: todo
+  floor-screed-second-floor:
+    executor: mikhail
+    start: 2026-12-19
+    end: 2026-12-24
+    active-days: 6
+    status: todo
+  plaster-walls-first-floor:
+    executor: mikhail
+    start: 2026-11-20
+    end: 2026-12-01
+    active-days: 10
+    status: todo
+  plaster-walls-second-floor:
+    executor: mikhail
+    start: 2026-12-10
+    end: 2026-12-18
+    active-days: 8
+    status: todo
+  select-and-order-materials:
+    executor: anna
+    start: 2026-11-05
+    end: 2026-11-11
+    active-days: 6
+    status: todo
+  lighting-scenario:
+    executor: material-agent
+    start: 2026-11-05
+    end: 2026-11-06
+    active-days: 2
+    status: todo
+  tile-bathrooms-first-floor:
+    executor: grigory
+    start: 2026-12-10
+    end: 2026-12-16
+    active-days: 6
+    status: todo
+  tile-bathrooms-second-floor:
+    executor: grigory
+    start: 2026-12-25
+    end: 2026-12-30
+    active-days: 5
+    status: todo
+  paint-walls-first-floor:
+    executor: mikhail
+    start: 2026-12-25
+    end: 2027-01-16
+    active-days: 8
+    status: todo
+  paint-walls-second-floor:
+    executor: mikhail
+    start: 2027-01-18
+    end: 2027-01-25
+    active-days: 7
+    status: todo
+  interior-doors-install:
+    executor: pavel
+    start: 2026-12-25
+    end: 2026-12-28
+    active-days: 3
+    status: blocked
+  floor-covering-first-floor:
+    executor: pavel
+    start: 2027-01-18
+    end: 2027-01-21
+    active-days: 4
+    status: todo
+  floor-covering-second-floor:
+    executor: pavel
+    start: 2027-01-26
+    end: 2027-01-28
+    active-days: 3
+    status: todo
+  finish-electrical:
+    executor: viktor
+    start: 2027-01-26
+    end: 2027-01-29
+    active-days: 4
+    status: todo
+  plumbing-fixtures-install:
+    executor: sergey
+    start: 2027-01-09
+    end: 2027-01-12
+    active-days: 3
+    status: todo
+  final-cleaning-and-acceptance:
+    executor: mikhail
+    start: 2027-01-30
+    end: 2027-02-03
+    active-days: 4
+    status: todo

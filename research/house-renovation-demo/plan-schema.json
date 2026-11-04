@@ -1,0 +1,300 @@
+{
+  "$defs": {
+    "Availability": {
+      "anyOf": [
+        {
+          "format": "double",
+          "type": "number"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/Period"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "A calendar fraction: a scalar covers every working day, a period list\nnames the stretches that differ — sparse overrides, full days elsewhere."
+    },
+    "Calendar": {
+      "additionalProperties": false,
+      "description": "Which days are working days: authored, never a jurisdiction string — a\nplain read of the plan shows the whole calendar.",
+      "properties": {
+        "extra-workdays": {
+          "description": "Working dates the weekday rule would mark off (a working Saturday).",
+          "items": {
+            "format": "date",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "holidays": {
+          "description": "Non-working dates the weekday rule would mark working (holidays).",
+          "items": {
+            "format": "date",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "workdays": {
+          "description": "The working weekdays; required — a calendar naming none is not one.",
+          "items": {
+            "$ref": "#/$defs/Weekday"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "workdays"
+      ],
+      "type": "object"
+    },
+    "Executor": {
+      "additionalProperties": false,
+      "description": "A human or an agent, uniformly. Humans wear `availability` (a calendar\nfraction); agents wear `concurrency` (parallel slots). Nothing marks which\nkind an executor is — the capacity fields they carry are the only difference.",
+      "properties": {
+        "availability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Availability"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "calendar": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExecutorCalendar"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Replaces the plan calendar wholesale: `all` or a full calendar object.\nInheritance is the default; there is no merge."
+        },
+        "concurrency": {
+          "description": "Parallel slots; default 1.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "ids": {
+          "additionalProperties": true,
+          "description": "Tracker ids, e.g. `{ jira: 3294783, linear: 82374392 }`.",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "role-weights": {
+          "additionalProperties": {
+            "format": "double",
+            "type": "number"
+          },
+          "description": "Within-person capacity split, normalized inside this one executor.",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "roles": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "ExecutorCalendar": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/Calendar"
+        }
+      ],
+      "description": "An executor-level calendar: the string `all`, or a full calendar object.\nThe untagged shape keeps the YAML honest (`calendar: all` vs\n`calendar: { … }`); a string other than `all` is a validator error, so\nthe message can name the executor."
+    },
+    "Period": {
+      "additionalProperties": false,
+      "description": "One availability stretch: a fraction for a date range. `until` absent\nmeans open-ended; `until` is inclusive.",
+      "properties": {
+        "fraction": {
+          "format": "double",
+          "type": "number"
+        },
+        "from": {
+          "format": "date",
+          "type": "string"
+        },
+        "until": {
+          "format": "date",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "from",
+        "fraction"
+      ],
+      "type": "object"
+    },
+    "Status": {
+      "description": "The four-value status enum; small enough to round-trip through any tracker.",
+      "enum": [
+        "todo",
+        "in-progress",
+        "blocked",
+        "done"
+      ],
+      "type": "string"
+    },
+    "Task": {
+      "additionalProperties": false,
+      "description": "A unit of work. `estimate` is optional per task: plans mature by gaining\nfields, and maturity is derived, never declared.",
+      "properties": {
+        "blocked-reason": {
+          "description": "Free text; only meaningful with `status: blocked`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "depends-on": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "description": {
+          "description": "Free-form prose: what the work is, for the humans and agents reading\nthe plan. The name is the slug that identifies; the description\ncarries what the name cannot (tasks-carry-a-free-form-description).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "estimate": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "role": {
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Status"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Written by sync tooling, never hand-typed. Absent means `todo`."
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "type": "object"
+    },
+    "Weekday": {
+      "description": "A weekday, in the `calendar` vocabulary: `mon` … `sun`.",
+      "enum": [
+        "mon",
+        "tue",
+        "wed",
+        "thu",
+        "fri",
+        "sat",
+        "sun"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The plan: the only human-authored file. Nothing derived is ever stored here.",
+  "properties": {
+    "calendar": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Calendar"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Working days for the whole plan; absent → Monday–Friday, no holidays."
+    },
+    "deadline": {
+      "description": "Whole-project deadline, optional: an uncommitted deadline is invented\ndata, worse than none.",
+      "format": "date",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "executors": {
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-z][a-z0-9]*(-[a-z0-9]+)*$": {
+          "$ref": "#/$defs/Executor"
+        }
+      },
+      "type": "object"
+    },
+    "roles": {
+      "additionalProperties": false,
+      "description": "Declared role vocabulary; the keys are kebab-case slugs, the\ndescriptions optional, feeding the authoring agent.",
+      "patternProperties": {
+        "^[a-z][a-z0-9]*(-[a-z0-9]+)*$": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "start": {
+      "description": "When execution begins. Optional here — young plans need not know —\nbut the scheduler refuses a plan without it.",
+      "format": "date",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tasks": {
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-z][a-z0-9]*(-[a-z0-9]+)*$": {
+          "$ref": "#/$defs/Task"
+        }
+      },
+      "type": "object"
+    },
+    "unit": {
+      "description": "Plan-level estimate unit. Only `person-hours` is valid in v1.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "unit",
+    "roles",
+    "tasks",
+    "executors"
+  ],
+  "title": "Plan",
+  "type": "object"
+}

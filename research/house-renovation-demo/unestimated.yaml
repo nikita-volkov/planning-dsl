@@ -1,0 +1,26 @@
+# unestimated.yaml — the estimate-gate demo: scheduling is locked
+# until every not-done task carries a positive estimate. house-renovation.yaml
+# with two estimates withheld.
+unit: person-hours
+start: 2026-11-05
+
+roles:
+  finisher: finishes
+  electrician: wires
+
+tasks:
+  plaster-walls-first-floor:
+    role: finisher
+    estimate: 56
+  paint-walls-second-floor:
+    depends-on: [plaster-walls-first-floor]
+    role: finisher             # no estimate → offender
+  finish-electrical:
+    depends-on: [paint-walls-second-floor]
+    role: electrician          # no estimate → offender
+
+executors:
+  mikhail:
+    roles: [finisher]
+  viktor:
+    roles: [electrician]

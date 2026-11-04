@@ -1,0 +1,157 @@
+# research/house-renovation-demo/house-renovation.yaml — a demo plan:
+# renovating the interior of a two-story house, starting from the rough stage.
+# Structure only; assignment, timing and the critical path are derived.
+unit: person-hours
+start: 2026-11-05               # the crew walks in the day after Unity Day
+deadline: 2027-02-26            # the family moves in for the March dacha season
+
+calendar:
+  workdays: [mon, tue, wed, thu, fri, sat]  # a construction crew keeps a six-day week
+  holidays: [2026-11-04, 2026-12-31, 2027-01-01, 2027-01-02, 2027-01-03, 2027-01-04, 2027-01-05, 2027-01-06, 2027-01-07, 2027-01-08]
+  extra-workdays: [2026-12-20]  # a push Sunday before the holiday lull
+
+roles:
+  designer: the interior design project, material and lighting selections
+  electrician: rough cabling in the walls, finish sockets, switches and lights
+  plumber: rough plumbing and ventilation, finish bathroom fixtures
+  finisher: partitions, plaster, floor screed, painting
+  tiler: bathroom and splashback tile
+  joiner: interior doors and finish flooring
+
+tasks:
+  # --- happened before the plan existed: seeded done, never touched again ---
+  design-project:
+    status: done                # done tasks are exempt from the estimate gate
+    role: designer
+    estimate: 40
+  demolition:
+    status: done
+    description: strip the old finishes, open the walls for the new runs
+    role: finisher
+    estimate: 40
+
+  # --- the rough stage: walls, hidden cabling and pipes, screeds ---
+  partitions-first-floor:
+    status: in-progress         # seeded from the interview; sync owns it from here
+    depends-on: [demolition]
+    role: finisher
+    estimate: 40
+  partitions-second-floor:
+    depends-on: [demolition]
+    role: finisher
+    estimate: 32
+  ventilation-ducts:
+    depends-on: [demolition]
+    description: the supply and extract runs hidden above suspended ceilings
+    role: plumber
+    estimate: 24
+  rough-electrical-first-floor:
+    depends-on: [partitions-first-floor]
+    role: electrician
+    estimate: 40
+  rough-electrical-second-floor:
+    depends-on: [partitions-second-floor]
+    role: electrician
+    estimate: 36
+  rough-plumbing-first-floor:
+    depends-on: [partitions-first-floor]
+    role: plumber
+    estimate: 32
+  rough-plumbing-second-floor:
+    depends-on: [partitions-second-floor]
+    role: plumber
+    estimate: 28
+  floor-screed-first-floor:
+    depends-on: [rough-plumbing-first-floor, ventilation-ducts]
+    role: finisher
+    estimate: 40
+  floor-screed-second-floor:
+    depends-on: [rough-plumbing-second-floor]
+    role: finisher
+    estimate: 32
+  plaster-walls-first-floor:
+    depends-on: [rough-electrical-first-floor, rough-plumbing-first-floor]
+    role: finisher
+    estimate: 56
+  plaster-walls-second-floor:
+    depends-on: [rough-electrical-second-floor, rough-plumbing-second-floor]
+    role: finisher
+    estimate: 48
+
+  # --- selections: a role both the part-time designer and the agent can take ---
+  select-and-order-materials:
+    depends-on: [design-project]
+    description: tile, parquet, paint palettes and sanitary ware, compared and ordered
+    role: designer
+    estimate: 24
+  lighting-scenario:
+    depends-on: [design-project]
+    role: designer
+    estimate: 16
+
+  # --- the finish stage ---
+  tile-bathrooms-first-floor:
+    depends-on: [plaster-walls-first-floor, floor-screed-first-floor]
+    role: tiler
+    estimate: 48
+  tile-bathrooms-second-floor:
+    depends-on: [plaster-walls-second-floor, floor-screed-second-floor]
+    role: tiler
+    estimate: 40
+  paint-walls-first-floor:
+    depends-on: [plaster-walls-first-floor, ventilation-ducts]
+    role: finisher
+    estimate: 48
+  paint-walls-second-floor:
+    depends-on: [plaster-walls-second-floor, ventilation-ducts]
+    role: finisher
+    estimate: 40
+  interior-doors-install:
+    status: blocked             # blocked still schedules: capacity, not truth
+    blocked-reason: door leaves stuck at the supplier, delivery window unknown
+    depends-on: [floor-screed-first-floor, floor-screed-second-floor]
+    role: joiner
+    estimate: 24
+  floor-covering-first-floor:
+    depends-on: [floor-screed-first-floor, paint-walls-first-floor]
+    role: joiner
+    estimate: 32
+  floor-covering-second-floor:
+    depends-on: [floor-screed-second-floor, paint-walls-second-floor]
+    role: joiner
+    estimate: 24
+  finish-electrical:
+    depends-on: [paint-walls-first-floor, paint-walls-second-floor, tile-bathrooms-first-floor, tile-bathrooms-second-floor]
+    description: sockets, switches, the switchboard and the light fixtures
+    role: electrician
+    estimate: 32
+  plumbing-fixtures-install:
+    depends-on: [tile-bathrooms-first-floor, tile-bathrooms-second-floor]
+    role: plumber
+    estimate: 24
+  final-cleaning-and-acceptance:
+    depends-on: [floor-covering-first-floor, floor-covering-second-floor, finish-electrical, plumbing-fixtures-install, interior-doors-install]
+    role: finisher
+    estimate: 24
+
+executors:
+  anna:                         # the designer: her side practice, 4 h a day
+    roles: [designer]
+    availability: 0.5
+    ids: { trello: ANNA-7 }
+  mikhail:                      # the finisher who also lays tile: weights split his day
+    role-weights: { finisher: 3, tiler: 1 }   # 6 h finishing, 2 h tiling
+    availability:
+      - { from: 2026-12-28, until: 2027-01-10, fraction: 0.0 }  # New Year break
+  grigory:
+    roles: [tiler]
+  viktor:
+    roles: [electrician]
+  sergey:
+    roles: [plumber]
+  pavel:
+    roles: [joiner]
+  material-agent:               # an agent: slots, not hours
+    roles: [designer]
+    concurrency: 2
+    calendar: all               # researches every day, weekends included
