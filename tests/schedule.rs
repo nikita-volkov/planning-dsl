@@ -75,6 +75,61 @@ fn the_same_plan_schedules_byte_identically() {
 }
 
 #[test]
+fn the_csv_is_one_denormalized_table() {
+    // The flat view of the canonical artifact: the plan's scalars repeat on
+    // every task row, the critical-path chain becomes the on-critical-path
+    // column, and a done task — which the schedule never dates — carries
+    // empty cells in its task block.
+    let plan = load(PLAN).expect("parses");
+    let out = planning_dsl::schedule::to_csv(&schedule(&plan).expect("schedules"));
+    assert_eq!(
+        out,
+        "\
+plan-start,deadline,plan-end,slippage-days,latest-start,task,executor,start,end,active-days,status,on-critical-path
+2026-11-10,2026-12-18,2026-11-18,0,2026-12-10,design-architecture,,,,,done,false
+2026-11-10,2026-12-18,2026-11-18,0,2026-12-10,plan-out-the-tasks,nikita,2026-11-10,2026-11-11,2,todo,true
+2026-11-10,2026-12-18,2026-11-18,0,2026-12-10,implement-services,anton,2026-11-12,2026-11-18,5,todo,true
+2026-11-10,2026-12-18,2026-11-18,0,2026-12-10,implement-tests,review-agent,2026-11-12,2026-11-13,2,blocked,false
+"
+    );
+}
+
+#[test]
+fn the_tsv_is_the_same_table_tab_separated() {
+    let plan = load(PLAN).expect("parses");
+    let artifact = schedule(&plan).expect("schedules");
+    let csv = planning_dsl::schedule::to_csv(&artifact);
+    let tsv = planning_dsl::schedule::to_tsv(&artifact);
+    assert_eq!(tsv, csv.replace(',', "\t"));
+}
+
+#[test]
+fn without_a_deadline_the_absent_plan_columns_come_out_empty() {
+    // No deadline → no slippage, no latest-start: the columns exist and are
+    // empty, so every row keeps the same shape. The one 8-hour task draws a
+    // full pool and ends the day it starts.
+    let yaml = "
+unit: person-hours
+start: 2026-11-02
+roles:
+  dev: implements
+tasks:
+  ship: { role: dev, estimate: 8 }
+executors:
+  anton: { roles: [dev] }
+";
+    let plan = load(yaml).expect("parses");
+    let out = planning_dsl::schedule::to_csv(&schedule(&plan).expect("schedules"));
+    assert_eq!(
+        out,
+        "\
+plan-start,deadline,plan-end,slippage-days,latest-start,task,executor,start,end,active-days,status,on-critical-path
+2026-11-02,,2026-11-02,,,ship,anton,2026-11-02,2026-11-02,1,todo,true
+"
+    );
+}
+
+#[test]
 fn a_plan_without_a_start_is_refused() {
     let yaml = "
 unit: person-hours
@@ -463,4 +518,14 @@ fn the_repo_plan_is_all_done_and_takes_no_dates() {
     assert!(!out.contains("slippage"), "{out}");
     assert!(out.contains("critical-path: []"), "{out}");
     assert!(out.contains("  render-gantt:\n    status: done\n"), "{out}");
+    // The flat table keeps every row the same shape: the plan columns that
+    // the yaml omits are empty cells, on every row. The repo plan carries a
+    // start and no deadline, so its whole plan block is one cell.
+    let csv = planning_dsl::schedule::to_csv(&schedule(&plan).expect("schedules"));
+    assert!(
+        csv.lines()
+            .skip(1)
+            .all(|row| row.starts_with("2026-11-03,,,,") && row.ends_with(",done,false")),
+        "{csv}"
+    );
 }

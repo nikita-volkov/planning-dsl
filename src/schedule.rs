@@ -60,6 +60,96 @@ pub fn to_yaml(schedule: &Schedule) -> String {
     out
 }
 
+/// The artifact as csv: the flat table, comma-separated.
+pub fn to_csv(schedule: &Schedule) -> String {
+    to_delimited(schedule, ',')
+}
+
+/// The artifact as tsv: the flat table, tab-separated.
+pub fn to_tsv(schedule: &Schedule) -> String {
+    to_delimited(schedule, '\t')
+}
+
+/// The flat table's columns, the plan block then the task block. The plan's
+/// `start` is `plan-start` here, matching `plan-end`; the task block keeps
+/// the artifact's `start`/`end` — no two columns share a name.
+const TABLE_HEADER: [&str; 12] = [
+    "plan-start",
+    "deadline",
+    "plan-end",
+    "slippage-days",
+    "latest-start",
+    "task",
+    "executor",
+    "start",
+    "end",
+    "active-days",
+    "status",
+    "on-critical-path",
+];
+
+/// The flat-table view both delimited formats render: the plan's scalars
+/// repeat on every task row and the critical-path chain becomes a per-task
+/// boolean — the same data, denormalized, for spreadsheets and pipelines
+/// that want rows, not a document. Column order is fixed; the serialization
+/// is part of the byte-identical guarantee, same as the YAML's field order.
+/// No cell is ever quoted because no cell can carry a separator: names are
+/// validator-enforced slugs, the rest are dates, numbers and the status.
+fn to_delimited(schedule: &Schedule, sep: char) -> String {
+    let on_path: BTreeSet<&str> = schedule.critical_path.iter().map(String::as_str).collect();
+    let plan_cells = [
+        schedule.start.to_string(),
+        cell(&schedule.deadline),
+        cell(&schedule.plan_end),
+        cell(&schedule.slippage_days),
+        cell(&schedule.latest_start),
+    ];
+    let mut rows: Vec<String> = vec![line_of(&TABLE_HEADER, sep)];
+    for (name, line) in &schedule.tasks {
+        let mut cells = plan_cells.to_vec();
+        cells.push(name.clone());
+        cells.push(cell(&line.executor));
+        cells.push(cell(&line.start));
+        cells.push(cell(&line.end));
+        cells.push(cell(&line.active_days));
+        cells.push(status_cell(line.status));
+        cells.push(on_path.contains(name.as_str()).to_string());
+        rows.push(line_of(&cells, sep));
+    }
+    let mut out = rows.join("\n");
+    out.push('\n');
+    out
+}
+
+/// The cells of one row, separated.
+fn line_of(cells: &[impl AsRef<str>], sep: char) -> String {
+    let mut line = String::new();
+    for (i, value) in cells.iter().enumerate() {
+        if i > 0 {
+            line.push(sep);
+        }
+        line.push_str(value.as_ref());
+    }
+    line
+}
+
+/// `Some` prints, `None` is the empty cell.
+fn cell(value: &Option<impl std::fmt::Display>) -> String {
+    value.as_ref().map_or(String::new(), |v| v.to_string())
+}
+
+/// The status in its kebab-case artifact spelling — the same string serde's
+/// `rename_all` writes into the YAML.
+fn status_cell(status: Status) -> String {
+    match status {
+        Status::Todo => "todo",
+        Status::InProgress => "in-progress",
+        Status::Blocked => "blocked",
+        Status::Done => "done",
+    }
+    .to_string()
+}
+
 /// One task's line in the artifact.
 #[derive(Debug, Serialize)]
 pub struct TaskSchedule {

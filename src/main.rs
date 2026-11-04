@@ -7,6 +7,9 @@ commands:
   validate <plan.yaml>   check a plan; every error, not just the first
   schedule <plan.yaml>   compute the schedule; print the artifact
       --out <file>       write it to a file instead of stdout
+      --format <fmt>     yaml (the default), csv or tsv — csv/tsv are one
+                         flat table: the plan columns repeat on every task
+                         row, the critical path becomes on-critical-path
                          (never into plan.yaml; no date flags — what-ifs
                          are file edits under git)
   emit-schema            print the JSON Schema for plan.yaml
@@ -85,6 +88,8 @@ fn validate(args: &[String]) -> ExitCode {
 fn schedule(args: &[String]) -> ExitCode {
     let mut plan_path = None;
     let mut out_path = None;
+    // yaml unless asked otherwise; validated against the three spellings.
+    let mut format = "yaml";
     let mut flags = args.iter();
     while let Some(arg) = flags.next() {
         match arg.as_str() {
@@ -94,6 +99,19 @@ fn schedule(args: &[String]) -> ExitCode {
                     return ExitCode::from(2);
                 };
                 out_path = Some(target);
+            }
+            "--format" => {
+                let Some(value) = flags.next() else {
+                    eprintln!("error: --format needs yaml, csv or tsv\n{USAGE}");
+                    return ExitCode::from(2);
+                };
+                format = match value.as_str() {
+                    "yaml" | "csv" | "tsv" => value.as_str(),
+                    other => {
+                        eprintln!("error: --format is yaml, csv or tsv, not {other}\n{USAGE}");
+                        return ExitCode::from(2);
+                    }
+                };
             }
             s if s.starts_with('-') => {
                 eprintln!("error: unknown flag {s}\n{USAGE}");
@@ -144,7 +162,11 @@ fn schedule(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let out = planning_dsl::schedule::to_yaml(&artifact);
+    let out = match format {
+        "csv" => planning_dsl::schedule::to_csv(&artifact),
+        "tsv" => planning_dsl::schedule::to_tsv(&artifact),
+        _ => planning_dsl::schedule::to_yaml(&artifact),
+    };
     match out_path {
         Some(file) => {
             if let Err(e) = std::fs::write(file, &out) {

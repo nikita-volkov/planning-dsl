@@ -100,3 +100,7 @@ tasks:
 ```
 
 Renderers consume this; nothing recomputes it.
+
+### The flat table: `--format csv|tsv`
+
+The yaml above is the canonical serialization. `--format csv` and `--format tsv` render the same artifact as one denormalized table: the plan's scalars repeat on every task row, the critical-path chain becomes a per-task `on-critical-path` boolean, and a value the yaml omits is an empty cell — every row keeps the same shape. Column order is fixed — `plan-start, deadline, plan-end, slippage-days, latest-start, task, executor, start, end, active-days, status, on-critical-path` — and no cell is ever quoted: names are validator-enforced slugs, the rest are dates, numbers and the status. The plan's `start` is `plan-start` here, matching `plan-end`; the task block keeps the artifact's `start`/`end`, so no two columns share a name. Rejected shapes: a tasks-only table (loses the scalars — the export must be self-sufficient) and a `#`-comment prologue before the table (not standard csv; pandas and Excel choke on it). The flag itself is one `--format yaml|csv|tsv`, yaml the default — a `--csv`/`--tsv` pair grows a flag per format, and inferring the format from `--out`'s extension hides the choice; both were rejected in favor of the one explicit flag.
