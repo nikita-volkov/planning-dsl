@@ -1,13 +1,17 @@
 //! Renderers: derived artifacts — a mermaid flowchart of the task dependency
-//! DAG, a self-contained interactive HTML graph, and a mermaid gantt chart of
-//! the schedule. All are pure functions: same input in, byte-identical file
-//! out. The flowchart is a function of the plan; the gantt is a function of
-//! the schedule artifact alone, and the HTML is a function of the plan plus
-//! the artifact's critical path when handed one (`specs/scheduler.md`:
-//! renderers consume it, nothing recomputes it) — none re-derives a date, a
-//! capacity or an assignment. The determinism is carried by the model's
-//! declaration order (the `DeclarationMap`) and by canonicalizing the edge
-//! set, never by hashing or sorting at the end.
+//! DAG, a self-contained interactive HTML graph, a mermaid gantt chart of the
+//! schedule, and a self-contained interactive HTML gantt. All are pure
+//! functions: same input in, byte-identical file out. The flowchart is a
+//! function of the plan; the gantt is a function of the schedule artifact
+//! alone; the HTML graph is a function of the plan plus the artifact's
+//! critical path when handed one (`specs/scheduler.md`: renderers consume
+//! it, nothing recomputes it); the HTML gantt is a function of the plan and
+//! the artifact together — the artifact alone fixes every date, the plan is
+//! read only for the dependency arrows and the authored fields the view
+//! shows (role, estimate, unit) — and none re-derives a date, a capacity or
+//! an assignment. The determinism is carried by the model's declaration
+//! order (the `DeclarationMap`) and by canonicalizing the edge set, never by
+//! hashing or sorting at the end.
 //!
 //! Renderers assume a valid input (the CLI gates on `validate`, and the
 //! gantt's CLI path schedules first); defensively, a `depends-on` naming no
@@ -15,8 +19,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use chrono::{Datelike, Duration};
+
 use crate::model::{Plan, Status, Task};
-use crate::schedule::Schedule;
+use crate::schedule::{Schedule, TaskSchedule};
 
 /// The dependency edges, canonicalized: `(dependency, dependent)` pairs —
 /// what must come first, what waits for it — sorted, deduplicated, and
@@ -152,11 +158,343 @@ pub fn gantt(schedule: &Schedule) -> String {
     out
 }
 
-/// The flow direction of the HTML graph's layout: `Tb` stacks one row per
-/// layer, dependencies at the top and dependents below; `Lr` keeps the
-/// original left-to-right columns. A property of the view, like `--gantt`
-/// is a property of the output set — never of the plan
-/// (`decisions/the-html-graph-renders-top-down-by-default.md`).
+/// The interactive HTML gantt: one self-contained file, the schedule artifact
+/// drawn as a horizontal timeline — a task-list column on the left, a day grid
+/// on the right, a two-tier time axis (a band per calendar month over the
+/// day-of-month numbers), gridlines at every day boundary. Rows group by
+/// executor, first appearance along the artifact's task declaration order —
+/// the mermaid gantt's precedent — with a full-width header band per executor;
+/// within a group, declaration order. Done tasks carry no dates in the
+/// artifact and are off the chart entirely. The dates come from the artifact
+/// alone; the plan is read only for the dependency arrows (`edges`,
+/// canonicalized — the DAG as authored, nothing recomputed) and for the
+/// authored fields the detail card shows (role, estimate, unit). Bars carry
+/// the status fill and the artifact's red stroke on critical-path members.
+/// All geometry is computed here, in integers, so the bytes cannot depend on
+/// float formatting; the inline ES5 script only reads what was printed
+/// (data-* attributes): hovering a bar dims the chart and highlights the bar,
+/// its direct dependency arrows and their other endpoints, click pins (the
+/// same drag-vs-click rule as the HTML graph), a bottom-left card shows the
+/// task's fields, and pan / wheel zoom / fit match the HTML graph's grammar.
+/// The today line is drawn by the viewer's browser from the viewer's clock —
+/// the file's bytes stay deterministic. No libs, no CDN, opens offline.
+pub fn gantt_html(plan: &Plan, schedule: &Schedule) -> String {
+    // Geometry, in integers, so the bytes cannot depend on float formatting.
+    const DAY_W: usize = 26; // one day column
+    const ROW_H: usize = 36;
+    const BAR_H: usize = 20;
+    const AXIS_H: usize = 44; // two tiers: the month band over the day numbers
+    const CHAR_W: usize = 8; // 11px monospace advances ~6.6px; slack kept
+    const PAD_X: usize = 10;
+    const MIN_LABEL_W: usize = 120;
+    const STUB: usize = 6; // the horizontal stub off a bar's right edge
+
+    // The window: the artifact's span; with nothing left to do, its single
+    // first day.
+    let window_start = schedule.start;
+    let window_end = schedule.plan_end.unwrap_or(schedule.start);
+    let days = window_end
+        .signed_duration_since(window_start)
+        .num_days()
+        .max(0) as usize
+        + 1;
+
+    // The dated lines, declaration order. Done tasks carry no dates — off the
+    // chart entirely, the mermaid gantt's recorded precedent.
+    let dated: Vec<(&str, &TaskSchedule)> = schedule
+        .tasks
+        .iter()
+        .filter(|(_, line)| line.start.is_some() && line.end.is_some())
+        .map(|(name, line)| (name.as_str(), line))
+        .collect();
+
+    // Executors in first-appearance order along that declaration order. A
+    // dated task the artifact leaves unassigned (the scheduler never produces
+    // one) renders, defensively, in an unnamed leading group with no header.
+    let mut groups: Vec<Option<&str>> = Vec::new();
+    for &(_, line) in &dated {
+        let executor = line.executor.as_deref();
+        if !groups.contains(&executor) {
+            groups.push(executor);
+        }
+    }
+    groups.sort_by_key(|g| g.is_some());
+
+    // Rows: a header band per named group, one row per dated task; row
+    // indices count bands too, everything hangs off the axis.
+    let mut bands: Vec<(usize, &str)> = Vec::new();
+    let mut geom: BTreeMap<&str, (usize, usize, usize)> = BTreeMap::new();
+    let mut row = 0;
+    for group in &groups {
+        if let Some(name) = group {
+            bands.push((row, name));
+            row += 1;
+        }
+        for &(task, line) in &dated {
+            if line.executor.as_deref() != *group {
+                continue;
+            }
+            let start = line.start.expect("dated");
+            let start_idx = start
+                .signed_duration_since(window_start)
+                .num_days()
+                .max(0) as usize;
+            let span = line
+                .end
+                .expect("dated")
+                .signed_duration_since(start)
+                .num_days()
+                .max(0) as usize
+                + 1;
+            geom.insert(task, (start_idx, span, row));
+            row += 1;
+        }
+    }
+    let total_rows = row;
+
+    // The label column fits the widest task name it carries.
+    let label_w = dated
+        .iter()
+        .map(|(name, _)| name.chars().count() * CHAR_W + 2 * PAD_X)
+        .max()
+        .unwrap_or(MIN_LABEL_W)
+        .max(MIN_LABEL_W);
+    let canvas_w = label_w + days.saturating_mul(DAY_W);
+    let canvas_h = AXIS_H + total_rows.saturating_mul(ROW_H);
+
+    // The crit chain, read off the artifact: bars named in it wear the red
+    // stroke, and an arrow wears it exactly when it is a consecutive pair of
+    // the chain — dependency-first, so a pair runs dependency → dependent.
+    let crit_nodes: BTreeSet<&str> = schedule.critical_path.iter().map(String::as_str).collect();
+    let crit_edges: BTreeSet<(&str, &str)> = schedule
+        .critical_path
+        .windows(2)
+        .map(|pair| (pair[0].as_str(), pair[1].as_str()))
+        .collect();
+
+    // The month tier: one label per calendar month spanning its days.
+    let mut months: Vec<(usize, usize, String)> = Vec::new();
+    for i in 0..days {
+        let label = format!(
+            "{:04}-{:02}",
+            (window_start + Duration::days(i as i64)).year(),
+            (window_start + Duration::days(i as i64)).month(),
+        );
+        match months.last_mut() {
+            Some((_, last, same)) if *same == label => *last = i,
+            _ => months.push((i, i, label)),
+        }
+    }
+
+    let bar_y = |row: usize| AXIS_H + row * ROW_H + (ROW_H - BAR_H) / 2;
+    let mid_y = |row: usize| AXIS_H + row * ROW_H + ROW_H / 2;
+    let status_of = |line: &TaskSchedule| match line.status {
+        Status::Todo => "todo",
+        Status::InProgress => "in-progress",
+        Status::Blocked => "blocked",
+        Status::Done => "done",
+    };
+
+    let mut svg = String::new();
+    svg.push_str(&format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{cw}\" height=\"{ch}\" \
+         data-w=\"{cw}\" data-h=\"{ch}\" data-days=\"{days}\" data-day-w=\"{DAY_W}\" \
+         data-label-w=\"{lw}\" data-start=\"{ws}\" data-end=\"{we}\">\n",
+        cw = canvas_w,
+        ch = canvas_h,
+        lw = label_w,
+        ws = window_start,
+        we = window_end,
+    ));
+    svg.push_str(
+        "<defs><marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" \
+         markerWidth=\"7\" markerHeight=\"7\" orient=\"auto\">\
+         <path d=\"M0,0 L10,5 L0,10 z\" fill=\"#5b6470\"/></marker>\
+         <marker id=\"arrow-crit\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" \
+         markerWidth=\"7\" markerHeight=\"7\" orient=\"auto\">\
+         <path d=\"M0,0 L10,5 L0,10 z\" fill=\"#b91c1c\"/></marker></defs>\n",
+    );
+    svg.push_str("<g id=\"view\">\n");
+
+    // The task-list column's panel, then the day grid: a line at every day
+    // boundary, slightly darker where a month begins.
+    svg.push_str(&format!(
+        "<rect class=\"panel\" x=\"0\" y=\"0\" width=\"{lw}\" height=\"{ch}\"/>\n",
+        lw = label_w,
+        ch = canvas_h,
+    ));
+    for i in 0..days {
+        let x = label_w + i * DAY_W;
+        let class = if i > 0 && (window_start + Duration::days(i as i64)).day() == 1 {
+            "grid month"
+        } else {
+            "grid"
+        };
+        svg.push_str(&format!(
+            "<line class=\"{class}\" x1=\"{x}\" y1=\"0\" x2=\"{x}\" y2=\"{ch}\"/>\n",
+            ch = canvas_h,
+        ));
+    }
+    svg.push_str(&format!(
+        "<line class=\"axis\" x1=\"0\" y1=\"{AXIS_H}\" x2=\"{cw}\" y2=\"{AXIS_H}\"/>\n",
+        cw = canvas_w,
+    ));
+
+    // The time axis: a band label per calendar month, a number per day.
+    for (first, last, label) in &months {
+        let x = label_w + (first + last + 1) * DAY_W / 2;
+        svg.push_str(&format!("<text class=\"month\" x=\"{x}\" y=\"11\">{label}</text>\n"));
+    }
+    for i in 0..days {
+        let d = window_start + Duration::days(i as i64);
+        let x = label_w + i * DAY_W + DAY_W / 2;
+        svg.push_str(&format!(
+            "<text class=\"day\" x=\"{x}\" y=\"33\">{}</text>\n",
+            d.day()
+        ));
+    }
+
+    // Full-width header bands with the executor name, then the task names in
+    // the label column; the divider is repainted over both.
+    for &(band_row, name) in &bands {
+        let y = AXIS_H + band_row * ROW_H;
+        svg.push_str(&format!(
+            "<rect class=\"band\" x=\"0\" y=\"{y}\" width=\"{cw}\" height=\"{ROW_H}\"/>\n",
+            cw = canvas_w,
+        ));
+        svg.push_str(&format!(
+            "<text class=\"band-label\" x=\"{PAD_X}\" y=\"{}\">{}</text>\n",
+            AXIS_H + band_row * ROW_H + ROW_H / 2,
+            escape(name)
+        ));
+    }
+    for group in &groups {
+        for &(task, line) in &dated {
+            if line.executor.as_deref() != *group {
+                continue;
+            }
+            let task_row = geom[task].2;
+            svg.push_str(&format!(
+                "<text class=\"tlabel\" x=\"{PAD_X}\" y=\"{}\">{}</text>\n",
+                mid_y(task_row),
+                escape(task)
+            ));
+        }
+    }
+    svg.push_str(&format!(
+        "<line class=\"divider\" x1=\"{lw}\" y1=\"0\" x2=\"{lw}\" y2=\"{ch}\"/>\n",
+        lw = label_w,
+        ch = canvas_h,
+    ));
+
+    // Arrows follow execution order, the community convention: they leave
+    // the dependency's right edge and enter the dependent's left edge, both
+    // at the bar's vertical middle — an orthogonal elbow: horizontal stub,
+    // vertical travel, horizontal in. Saturating arithmetic guards the elbow
+    // against a successor that does not start after its predecessor ends
+    // (the scheduler guarantees it; the renderer is defensive). An endpoint
+    // with no bar — a done task — takes no arrow.
+    for (from, to) in edges(plan) {
+        let (f, t) = match (geom.get(from), geom.get(to)) {
+            (Some(f), Some(t)) => (*f, *t),
+            _ => continue,
+        };
+        let sx = label_w
+            .saturating_add(f.0.saturating_add(f.1).saturating_mul(DAY_W));
+        let sy = mid_y(f.2);
+        let ex = label_w.saturating_add(t.0.saturating_mul(DAY_W));
+        let ey = mid_y(t.2);
+        let mid = sx.saturating_add(STUB).min(ex).max(sx);
+        let class = if crit_edges.contains(&(from, to)) {
+            "link crit"
+        } else {
+            "link"
+        };
+        svg.push_str(&format!(
+            "<path class=\"{class}\" data-from=\"{f}\" data-to=\"{t}\" \
+             d=\"M {sx},{sy} H {mid} V {ey} H {ex}\"/>\n",
+            f = escape(from),
+            t = escape(to),
+        ));
+    }
+
+    // Bars paint over the arrows. The card reads the task's fields off the
+    // data attributes, so every field the card shows is printed here —
+    // empty ones omitted (no executor, no estimate).
+    for group in &groups {
+        for &(task, line) in &dated {
+            if line.executor.as_deref() != *group {
+                continue;
+            }
+            let (start_idx, span, task_row) = geom[task];
+            let x = label_w.saturating_add(start_idx.saturating_mul(DAY_W));
+            let y = bar_y(task_row);
+            let w = span.saturating_mul(DAY_W);
+            let status = status_of(line);
+            let crit = crit_nodes.contains(task);
+            let class = if crit {
+                format!("bar {status} crit")
+            } else {
+                format!("bar {status}")
+            };
+            let mut attrs = format!("data-id=\"{}\" data-status=\"{status}\"", escape(task));
+            if let Some(executor) = line.executor.as_deref() {
+                attrs.push_str(&format!(" data-executor=\"{}\"", escape(executor)));
+            }
+            attrs.push_str(&format!(
+                " data-start=\"{}\" data-end=\"{}\"",
+                line.start.expect("dated"),
+                line.end.expect("dated"),
+            ));
+            if let Some(active) = line.active_days {
+                attrs.push_str(&format!(" data-active-days=\"{active}\""));
+            }
+            let authored = &plan.tasks[task];
+            attrs.push_str(&format!(" data-role=\"{}\"", escape(&authored.role)));
+            if let Some(estimate) = authored.estimate {
+                attrs.push_str(&format!(" data-estimate=\"{estimate}\""));
+            }
+            if crit {
+                attrs.push_str(" data-crit=\"1\"");
+            }
+            svg.push_str(&format!(
+                "<g class=\"{class}\" {attrs}>\
+                 <rect x=\"{x}\" y=\"{y}\" width=\"{w}\" height=\"{BAR_H}\" rx=\"4\"/></g>\n"
+            ));
+        }
+    }
+    svg.push_str("</g>\n</svg>\n");
+
+    // The corner legend, one div per line so a future key joins as one more
+    // push: the unit, always; the key to the red stroke, when a chain was
+    // rendered; the keys to the status fills, when such a bar exists; the
+    // today key, pre-printed hidden — the viewer's clock un-hides it.
+    let mut legend = format!(
+        "<div id=\"legend\">\n<div>unit: {}</div>\n",
+        escape(&plan.unit)
+    );
+    if !schedule.critical_path.is_empty() {
+        legend.push_str("<div>red stroke: critical path</div>\n");
+    }
+    if dated
+        .iter()
+        .any(|(_, line)| line.status == Status::InProgress)
+    {
+        legend.push_str("<div>blue: in-progress</div>\n");
+    }
+    if dated.iter().any(|(_, line)| line.status == Status::Blocked) {
+        legend.push_str("<div>orange: blocked</div>\n");
+    }
+    legend.push_str("<div id=\"today-key\" hidden>dashed red: today</div>\n");
+    legend.push_str("</div>\n");
+
+    let mut out = String::from(GANTT_HEAD);
+    out.push_str(&legend);
+    out.push_str("<div id=\"card\"></div>\n");
+    out.push_str(&svg);
+    out.push_str(GANTT_TAIL);
+    out
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     /// Top-down: the default.
@@ -533,6 +871,202 @@ const HTML_TAIL: &str = r#"<script>
   });
   svg.addEventListener('dblclick', fit);
   window.addEventListener('resize', fit);
+  fit();
+})();
+</script>
+</body>
+</html>
+"#;
+
+/// The head of the HTML gantt page: the same background and monospace family
+/// as the HTML graph, its legend and dim/hot grammar, plus the gantt's own
+/// panel, bands, axis, bars, links and the bottom-left detail card. Separate
+/// from `HTML_HEAD` so the two files' styling cannot drift into each other.
+const GANTT_HEAD: &str = r#"<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>schedule gantt</title>
+<style>
+html, body { margin: 0; height: 100%; background: #fafaf7; }
+body { font-family: ui-monospace, Menlo, Consolas, monospace; overflow: hidden; }
+svg { width: 100vw; height: 100vh; display: block; cursor: grab; }
+svg:active { cursor: grabbing; }
+#legend { position: fixed; top: 12px; right: 16px; padding: 6px 10px; font-size: 11px; line-height: 1.7; color: #5b6470; background: rgba(255,255,255,0.9); border: 1px solid #c4cad2; border-radius: 6px; pointer-events: none; }
+#card { position: fixed; left: 16px; bottom: 16px; display: none; padding: 8px 12px; font-size: 11px; line-height: 1.7; color: #1c2430; background: rgba(255,255,255,0.95); border: 1px solid #c4cad2; border-radius: 6px; pointer-events: none; }
+#card .title { font-weight: 700; }
+#card .crit { color: #b91c1c; }
+.panel { fill: #f1f2ee; }
+.band { fill: #eceee6; }
+.grid { stroke: #e7e7df; }
+.grid.month { stroke: #c4cad2; }
+.axis, .divider { stroke: #c4cad2; }
+.month { fill: #5b6470; font-size: 10px; text-anchor: middle; dominant-baseline: central; }
+.day { fill: #9aa4b2; font-size: 9px; text-anchor: middle; dominant-baseline: central; }
+.band-label { fill: #5b6470; font-size: 11px; font-weight: 700; dominant-baseline: central; }
+.tlabel { fill: #1c2430; font-size: 11px; dominant-baseline: central; }
+.bar { cursor: pointer; }
+.bar.todo { fill: #5b6470; }
+.bar.in-progress { fill: #2563eb; }
+.bar.blocked { fill: #ea580c; }
+.bar.done { fill: #c4cad2; }
+.bar.crit { stroke: #b91c1c; stroke-width: 2; }
+.link { stroke: #9aa4b2; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+.link.crit { stroke: #b91c1c; marker-end: url(#arrow-crit); }
+svg.dim .bar, svg.dim .link { opacity: 0.15; }
+svg.dim .bar.crit { opacity: 0.4; }
+svg.dim .bar.hot, svg.dim .link.hot { opacity: 1; }
+svg.dim .bar.hot { stroke: #b45309; stroke-width: 2; }
+svg.dim .link.hot { stroke: #b45309; }
+#today { stroke: #b91c1c; stroke-dasharray: 4 3; }
+</style>
+</head>
+<body>
+"#;
+
+/// The tail of the HTML gantt page: hover dim + highlight of a bar, its
+/// direct dependency arrows and their other endpoints, click-to-pin with the
+/// four-pixel drag-vs-click rule, the bottom-left detail card built from the
+/// bars' data attributes, pan, wheel zoom, fit — the HTML graph's script
+/// grammar — plus the today line, drawn by the viewer's browser from the
+/// viewer's clock (local date, never `toISOString`, which shifts by UTC) and
+/// only inside the window, so the file's bytes stay deterministic.
+const GANTT_TAIL: &str = r#"<script>
+(function () {
+  var svg = document.querySelector('svg');
+  var view = document.getElementById('view');
+  var W = +svg.dataset.w, H = +svg.dataset.h;
+  var DAYS = +svg.dataset.days, DAY_W = +svg.dataset.dayW, LABEL_W = +svg.dataset.labelW;
+  var bars = Array.prototype.slice.call(svg.querySelectorAll('.bar'));
+  var links = Array.prototype.slice.call(svg.querySelectorAll('.link'));
+  var byId = {};
+  bars.forEach(function (b) { byId[b.getAttribute('data-id')] = b; });
+  var tx = 0, ty = 0, k = 1;
+  var pinned = null, down = null;
+  var card = document.getElementById('card');
+
+  function apply() {
+    view.setAttribute('transform', 'translate(' + tx + ',' + ty + ') scale(' + k + ')');
+  }
+  function fit() {
+    k = Math.min((window.innerWidth - 48) / W, (window.innerHeight - 48) / H, 1);
+    if (!isFinite(k) || k <= 0) k = 1;
+    tx = (window.innerWidth - W * k) / 2;
+    ty = (window.innerHeight - H * k) / 2;
+    apply();
+  }
+  function cardFor(bar) {
+    var d = bar.dataset;
+    while (card.firstChild) card.removeChild(card.firstChild);
+    var add = function (text, cls) {
+      var div = document.createElement('div');
+      if (cls) div.className = cls;
+      div.textContent = text;
+      card.appendChild(div);
+    };
+    add(d.id, 'title');
+    add('status: ' + d.status);
+    if (d.executor) add('executor: ' + d.executor);
+    add('start: ' + d.start);
+    add('end: ' + d.end);
+    if (d.activeDays) add('active-days: ' + d.activeDays);
+    add(d.estimate ? d.role + ' · ' + d.estimate : d.role);
+    if (d.crit) add('critical path', 'crit');
+    card.style.display = 'block';
+  }
+  function setHot(id) {
+    svg.classList.add('dim');
+    bars.forEach(function (b) {
+      if (b.getAttribute('data-id') === id) b.classList.add('hot');
+    });
+    links.forEach(function (l) {
+      var f = l.getAttribute('data-from'), t = l.getAttribute('data-to');
+      if (f !== id && t !== id) return;
+      l.classList.add('hot');
+      var other = f === id ? t : f;
+      if (byId[other]) byId[other].classList.add('hot');
+    });
+    if (byId[id]) cardFor(byId[id]);
+  }
+  function clearHot() {
+    svg.classList.remove('dim');
+    bars.forEach(function (b) { b.classList.remove('hot'); });
+    links.forEach(function (l) { l.classList.remove('hot'); });
+    card.style.display = 'none';
+  }
+  // The pin: a click leaves a bar's highlight standing after mouseleave.
+  // Hovering overrides it while over a bar; leaving restores it.
+  function applyPin() {
+    clearHot();
+    if (pinned !== null) setHot(pinned);
+  }
+
+  bars.forEach(function (bar) {
+    var id = bar.getAttribute('data-id');
+    bar.addEventListener('mouseenter', function () { setHot(id); });
+    bar.addEventListener('mouseleave', applyPin);
+  });
+
+  svg.addEventListener('wheel', function (ev) {
+    ev.preventDefault();
+    var r = svg.getBoundingClientRect();
+    var f = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
+    var mx = ev.clientX - r.left, my = ev.clientY - r.top;
+    tx = mx - (mx - tx) * f;
+    ty = my - (my - ty) * f;
+    k *= f;
+    apply();
+  }, { passive: false });
+
+  var drag = null;
+  svg.addEventListener('pointerdown', function (ev) {
+    if (ev.button !== 0) return;
+    drag = { x: ev.clientX, y: ev.clientY, tx: tx, ty: ty };
+    // The pointer is captured to the svg on down, so the up targets the
+    // svg; the bar a click means is read off the down's target.
+    down = { x: ev.clientX, y: ev.clientY, target: ev.target };
+    svg.setPointerCapture(ev.pointerId);
+  });
+  svg.addEventListener('pointermove', function (ev) {
+    if (!drag) return;
+    tx = drag.tx + ev.clientX - drag.x;
+    ty = drag.ty + ev.clientY - drag.y;
+    apply();
+  });
+  svg.addEventListener('pointerup', function (ev) {
+    // A click is an up that stayed within a few pixels of its down; a pan
+    // drag never moves the pin. Background (any non-bar) clears it.
+    if (down && ev.button === 0) {
+      var dx = ev.clientX - down.x, dy = ev.clientY - down.y;
+      if (dx * dx + dy * dy <= 16) {
+        var bar = down.target.closest('.bar');
+        var id = bar ? bar.getAttribute('data-id') : null;
+        pinned = id === pinned ? null : id;
+        applyPin();
+      }
+    }
+    drag = null;
+    down = null;
+  });
+  svg.addEventListener('dblclick', fit);
+  window.addEventListener('resize', fit);
+
+  // The today line: the viewer's local date against the window Rust printed.
+  var t = new Date();
+  var utcDays = function (y, m, d) { return Date.UTC(y, m - 1, d) / 86400000; };
+  var parts = svg.dataset.start.split('-');
+  var idx = utcDays(t.getFullYear(), t.getMonth() + 1, t.getDate()) -
+            utcDays(+parts[0], +parts[1], +parts[2]);
+  if (idx >= 0 && idx < DAYS) {
+    var x = LABEL_W + (idx + 0.5) * DAY_W;
+    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('id', 'today');
+    line.setAttribute('x1', x); line.setAttribute('x2', x);
+    line.setAttribute('y1', 0); line.setAttribute('y2', H);
+    view.appendChild(line);
+    document.getElementById('today-key').hidden = false;
+  }
+
   fit();
 })();
 </script>

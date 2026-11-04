@@ -23,6 +23,9 @@ commands:
       --gantt [<file>]   the mermaid gantt (default: <stem>.gantt.mmd);
                          opt-in: it runs the scheduler, so the plan needs a
                          start: and full estimates — a refusal writes nothing
+      --gantt-html       the interactive HTML gantt (default:
+                         <stem>.gantt.html); an optional file name, the same
+                         gate as --gantt
 ";
 
 fn main() -> ExitCode {
@@ -188,20 +191,21 @@ fn render(args: &[String]) -> ExitCode {
     let mut direction = planning_dsl::render::Direction::Tb;
     // Outer `Some` = the gantt was requested; inner = the file was named.
     let mut gantt_path: Option<Option<&str>> = None;
+    let mut gantt_html_path: Option<Option<&str>> = None;
     let mut flags = args.iter().peekable();
     while let Some(arg) = flags.next() {
         match arg.as_str() {
-            "--mmd" | "--html" | "--gantt" => {
-                // A following non-flag token is the file name. `--gantt` may
-                // also stand alone: its presence, not a name, is the
-                // request — unnamed, it takes the default file.
+            "--mmd" | "--html" | "--gantt" | "--gantt-html" => {
+                // A following non-flag token is the file name. `--gantt` and
+                // `--gantt-html` may also stand alone: their presence, not a
+                // name, is the request — unnamed, they take the default file.
                 let named = match flags.peek() {
                     Some(next) if !next.starts_with('-') => flags.next(),
                     _ => None,
                 };
                 let target = match named {
                     Some(v) => Some(v.as_str()),
-                    None if arg == "--gantt" => None,
+                    None if arg == "--gantt" || arg == "--gantt-html" => None,
                     None => {
                         eprintln!("error: {arg} needs a file\n{USAGE}");
                         return ExitCode::from(2);
@@ -210,7 +214,8 @@ fn render(args: &[String]) -> ExitCode {
                 match arg.as_str() {
                     "--mmd" => mmd_path = target,
                     "--html" => html_path = target,
-                    _ => gantt_path = Some(target),
+                    "--gantt" => gantt_path = Some(target),
+                    _ => gantt_html_path = Some(target),
                 }
             }
             "--direction" => {
@@ -272,6 +277,7 @@ fn render(args: &[String]) -> ExitCode {
     let default_mmd = Path::new(path).with_extension("mmd");
     let default_html = Path::new(path).with_extension("html");
     let default_gantt = Path::new(path).with_extension("gantt.mmd");
+    let default_gantt_html = Path::new(path).with_extension("gantt.html");
     let mmd_out: &Path = match mmd_path {
         Some(p) => Path::new(p),
         None => default_mmd.as_path(),
@@ -280,17 +286,17 @@ fn render(args: &[String]) -> ExitCode {
         Some(p) => Path::new(p),
         None => default_html.as_path(),
     };
-    // The schedule, once, up front — both consumers read the one artifact.
+    // The schedule, once, up front — every consumer reads the one artifact.
     // Best-effort for the html graph: the critical path is an enhancement,
     // and the graph is most useful on early drafts that cannot schedule
-    // yet, so a refusal warns and the graph writes unmarked. The gantt
-    // keeps its loud gate: a refusal aborts with nothing written —
+    // yet, so a refusal warns and the graph writes unmarked. The gantts
+    // keep their loud gate: a refusal aborts with nothing written —
     // everything is computed before anything is written.
     let scheduled = planning_dsl::schedule(&plan);
     let artifact = match scheduled.as_ref() {
         Ok(artifact) => Some(artifact),
         Err(refusal) => {
-            if gantt_path.is_some() {
+            if gantt_path.is_some() || gantt_html_path.is_some() {
                 eprintln!("{refusal}");
                 return ExitCode::FAILURE;
             }
@@ -316,6 +322,17 @@ fn render(args: &[String]) -> ExitCode {
         };
         let artifact = artifact.expect("a gantt request gated on the schedule above");
         outputs.push((gantt_out, planning_dsl::render::gantt(artifact)));
+    }
+    if let Some(named_gantt_html) = gantt_html_path {
+        let gantt_html_out: &Path = match named_gantt_html {
+            Some(p) => Path::new(p),
+            None => default_gantt_html.as_path(),
+        };
+        let artifact = artifact.expect("a gantt request gated on the schedule above");
+        outputs.push((
+            gantt_html_out,
+            planning_dsl::render::gantt_html(&plan, artifact),
+        ));
     }
     for (out, content) in &outputs {
         if let Err(e) = std::fs::write(out, content) {
