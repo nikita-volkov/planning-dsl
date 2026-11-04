@@ -1,0 +1,4 @@
+warning: task `fit-the-staircase`: no executor fills role `stair-fitter`; it would never be assigned
+error: no executor fills the role of these tasks:
+  - fit-the-staircase (role stair-fitter)
+exit: 1

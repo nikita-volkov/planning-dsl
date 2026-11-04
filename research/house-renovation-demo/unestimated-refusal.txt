@@ -1,0 +1,4 @@
+error: these not-done tasks carry no estimate; scheduling is locked until every not-done task carries one:
+  - paint-walls-second-floor
+  - finish-electrical
+exit: 1

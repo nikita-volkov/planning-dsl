@@ -64,7 +64,7 @@ executors:
     calendar: all                      # an agent: works every day, no holidays
 ```
 
-Every identifying name — the keys of `tasks:`, `executors:` and `roles:` — is a kebab-case slug, `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`: lowercase letters and digits, hyphens only as separators, starting with a letter. Names identify; prose describes — a task says it in `description:`, a role in its own text ([identifying-names-are-kebab-case-slugs](../decisions/identifying-names-are-kebab-case-slugs.md), [tasks-carry-a-free-form-description](../decisions/tasks-carry-a-free-form-description.md)).
+Every identifying name — the keys of `tasks:`, `executors:` and `roles:` — is a slug, `^([a-z][a-z0-9]*(-[a-z0-9]+)*|[а-яё][а-яё0-9]*(-[а-яё0-9]+)*)$`: lowercase Latin or Cyrillic letters (`ё` included) and digits, hyphens only as separators, starting with a letter, one script per name. Names identify; prose describes — a task says it in `description:`, a role in its own text ([identifying-names-are-lowercase-latin-or-cyrillic-slugs](../decisions/identifying-names-are-lowercase-latin-or-cyrillic-slugs.md), [tasks-carry-a-free-form-description](../decisions/tasks-carry-a-free-form-description.md)).
 
 ## The invariant: authored vs. derived
 
@@ -75,7 +75,7 @@ Every identifying name — the keys of `tasks:`, `executors:` and `roles:` — i
 
 ## Layers
 
-- **Validator** — checks the declared role vocabulary, the DAG, the schema, the naming door — every identifying name is a kebab-case slug, refused not warned ([identifying-names-are-kebab-case-slugs](../decisions/identifying-names-are-kebab-case-slugs.md)) — and the estimate ceiling: a not-done task estimated over a working month (160 person-hours) is refused — unestimable, not immature ([a-task-estimated-over-a-working-month-is-refused](../decisions/a-task-estimated-over-a-working-month-is-refused.md)). Typo-class bugs die at commit time.
+- **Validator** — checks the declared role vocabulary, the DAG, the schema, the naming door — every identifying name is a lowercase Latin or Cyrillic slug, refused not warned ([identifying-names-are-lowercase-latin-or-cyrillic-slugs](../decisions/identifying-names-are-lowercase-latin-or-cyrillic-slugs.md)) — and the estimate ceiling: a not-done task estimated over a working month (160 person-hours) is refused — unestimable, not immature ([a-task-estimated-over-a-working-month-is-refused](../decisions/a-task-estimated-over-a-working-month-is-refused.md)). Typo-class bugs die at commit time.
 - **Scheduler** — deterministic layer over the file: consumes estimates, the calendar, availability periods, concurrency slots and the plan's dates; produces per-task start/end dates and the critical path ([scheduler](scheduler.md)). TaskJuggler's semantics are the reference model ([taskjuggler-solves-deterministic-scheduling-and-has-been-dormant-since-2020](../facts/taskjuggler-solves-deterministic-scheduling-and-has-been-dormant-since-2020.md)).
 - **Renderers** — mermaid graph, interactive HTML graph, Gantt chart.
 - **Tracker sync** — Jira/Linear exports out, status back, asymmetric authority.
@@ -93,7 +93,7 @@ Human-team planner: open format, agents-as-tools. The wedge is grilling session 
 - [assignment-is-derived-by-role-matching-and-the-plan-stays-role-only](../decisions/assignment-is-derived-by-role-matching-and-the-plan-stays-role-only.md)
 - [role-weights-split-one-executors-capacity-across-roles](../decisions/role-weights-split-one-executors-capacity-across-roles.md)
 - [roles-are-a-declared-vocabulary-enforced-by-validation](../decisions/roles-are-a-declared-vocabulary-enforced-by-validation.md)
-- [identifying-names-are-kebab-case-slugs](../decisions/identifying-names-are-kebab-case-slugs.md)
+- [identifying-names-are-lowercase-latin-or-cyrillic-slugs](../decisions/identifying-names-are-lowercase-latin-or-cyrillic-slugs.md)
 - [tasks-carry-a-free-form-description](../decisions/tasks-carry-a-free-form-description.md)
 - [status-is-a-four-value-enum-and-blocked-reason-is-written-by-tooling](../decisions/status-is-a-four-value-enum-and-blocked-reason-is-written-by-tooling.md)
 - [sync-is-asymmetric-structure-flows-out-and-status-flows-back](../decisions/sync-is-asymmetric-structure-flows-out-and-status-flows-back.md)

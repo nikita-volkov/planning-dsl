@@ -1,0 +1,29 @@
+# broken.yaml — the validator demo: every error at once, not just the first.
+# Same shape as house-renovation.yaml, every naming and estimate rule broken.
+unit: person-hours
+start: 2026-11-05
+
+roles:
+  finisher: finishes
+  plumber: pipes               # declared but never used → warning
+
+tasks:
+  Build Kitchen Island:        # not a slug: uppercase, spaces → error
+    role: finisher
+    estimate: 200              # over a working month → refused, split it
+  hang-the-chandelier:
+    role: lamp-fitter          # typo: no such role → error
+    estimate: 4
+    depends-on: [order-the-chandelier]  # names no task → error
+  lay-the-parquet:
+    role: finisher
+    estimate: 32
+    depends-on: [finish-the-parquet]     # together with its dependent: a cycle
+  finish-the-parquet:
+    role: finisher
+    estimate: 16
+    depends-on: [lay-the-parquet]
+
+executors:
+  mikhail:
+    roles: [finisher]

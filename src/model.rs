@@ -22,12 +22,13 @@ use serde::{Deserialize, Serialize};
 pub struct DeclarationMap<V>(IndexMap<String, V>);
 
 /// The shape of an identifying name: the mapping keys of `tasks:`,
-/// `executors:` and `roles:` are kebab-case slugs — lowercase letters and
-/// digits, hyphens only as separators, starting with a letter. The validator
-/// enforces it and the schema carries this same string as `patternProperties`,
-/// so the two cannot drift
-/// (identifying-names-are-kebab-case-slugs).
-pub const NAME_PATTERN: &str = "^[a-z][a-z0-9]*(-[a-z0-9]+)*$";
+/// `executors:` and `roles:` are slugs — lowercase Latin or Cyrillic letters
+/// (`ё` included) and digits, hyphens only as separators, starting with a
+/// letter, one script per name. The validator enforces it and the schema
+/// carries this same string as `patternProperties`, so the two cannot drift
+/// (identifying-names-are-lowercase-latin-or-cyrillic-slugs).
+pub const NAME_PATTERN: &str =
+    "^([a-z][a-z0-9]*(-[a-z0-9]+)*|[а-яё][а-яё0-9]*(-[а-яё0-9]+)*)$";
 
 /// In the schema it is an object keyed by the slug pattern: `patternProperties`
 /// built from `NAME_PATTERN` — the door the validator enforces, generated from

@@ -690,7 +690,8 @@ fn the_same_schedule_renders_the_gantt_byte_identically() {
 // There is no gantt escape test: the slug rule refuses a non-slug name at
 // the validator, and the scheduler gates on the validator — no public route
 // carries a `fix&ship`-shaped name to a gantt bar. The class the old test
-// exercised is the one identifying-names-are-kebab-case-slugs retired.
+// exercised is the one identifying-names-are-lowercase-latin-or-cyrillic-slugs
+// retired.
 
 #[test]
 fn a_plan_with_nothing_left_to_do_renders_the_empty_frame() {

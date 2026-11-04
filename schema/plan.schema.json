@@ -248,7 +248,7 @@
     "executors": {
       "additionalProperties": false,
       "patternProperties": {
-        "^[a-z][a-z0-9]*(-[a-z0-9]+)*$": {
+        "^([a-z][a-z0-9]*(-[a-z0-9]+)*|[а-яё][а-яё0-9]*(-[а-яё0-9]+)*)$": {
           "$ref": "#/$defs/Executor"
         }
       },
@@ -258,7 +258,7 @@
       "additionalProperties": false,
       "description": "Declared role vocabulary; the keys are kebab-case slugs, the\ndescriptions optional, feeding the authoring agent.",
       "patternProperties": {
-        "^[a-z][a-z0-9]*(-[a-z0-9]+)*$": {
+        "^([a-z][a-z0-9]*(-[a-z0-9]+)*|[а-яё][а-яё0-9]*(-[а-яё0-9]+)*)$": {
           "type": [
             "string",
             "null"
@@ -278,7 +278,7 @@
     "tasks": {
       "additionalProperties": false,
       "patternProperties": {
-        "^[a-z][a-z0-9]*(-[a-z0-9]+)*$": {
+        "^([a-z][a-z0-9]*(-[a-z0-9]+)*|[а-яё][а-яё0-9]*(-[а-яё0-9]+)*)$": {
           "$ref": "#/$defs/Task"
         }
       },

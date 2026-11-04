@@ -1,0 +1,207 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>task dependency graph</title>
+<style>
+html, body { margin: 0; height: 100%; background: #fafaf7; }
+body { font-family: ui-monospace, Menlo, Consolas, monospace; overflow: hidden; }
+svg { width: 100vw; height: 100vh; display: block; cursor: grab; }
+svg:active { cursor: grabbing; }
+#legend { position: fixed; top: 12px; right: 16px; padding: 6px 10px; font-size: 11px; line-height: 1.7; color: #5b6470; background: rgba(255,255,255,0.9); border: 1px solid #c4cad2; border-radius: 6px; pointer-events: none; }
+.node { cursor: pointer; }
+.node rect { fill: #ffffff; stroke: #5b6470; stroke-width: 1.5; }
+.node text { fill: #1c2430; font-size: 12px; dominant-baseline: central; }
+.node text.sub { fill: #9aa4b2; font-size: 10px; }
+.node.done rect { fill: #f1f2ee; stroke: #c4cad2; }
+.node.done text { fill: #9aa4b2; }
+.edge { stroke: #9aa4b2; stroke-width: 1.5; fill: none; }
+.node.crit rect { stroke: #b91c1c; }
+.node.crit text { fill: #b91c1c; }
+.edge.crit { stroke: #b91c1c; }
+svg.dim .node, svg.dim .edge { opacity: 0.15; }
+svg.dim .node.crit, svg.dim .edge.crit { opacity: 0.4; }
+svg.dim .node.hot, svg.dim .edge.hot { opacity: 1; }
+svg.dim .node.hot rect { fill: #fff3e0; stroke: #b45309; }
+svg.dim .node.hot text { fill: #7c3a00; }
+svg.dim .edge.hot { stroke: #b45309; }
+</style>
+</head>
+<body>
+<div id="legend">
+<div>unit: person-hours</div>
+<div>grey: done</div>
+<div>red: critical path</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" width="2320" height="328" data-w="2320" data-h="328">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6470"/></marker></defs>
+<g id="view">
+<path class="edge" data-from="вентиляция" data-to="малярка-второй-этаж" marker-end="url(#arrow)" d="M 484,156 C 910,156 910,212 1336,212"/>
+<path class="edge" data-from="вентиляция" data-to="малярка-первый-этаж" marker-end="url(#arrow)" d="M 484,156 C 910,156 910,156 1336,156"/>
+<path class="edge" data-from="вентиляция" data-to="стяжка-первый-этаж" marker-end="url(#arrow)" d="M 484,156 C 746,156 746,72 1008,72"/>
+<path class="edge" data-from="демонтаж" data-to="вентиляция" marker-end="url(#arrow)" d="M 164,184 C 258,184 258,156 352,156"/>
+<path class="edge" data-from="демонтаж" data-to="перегородки-второй-этаж" marker-end="url(#arrow)" d="M 164,184 C 258,184 258,100 352,100"/>
+<path class="edge" data-from="демонтаж" data-to="перегородки-первый-этаж" marker-end="url(#arrow)" d="M 164,184 C 258,184 258,44 352,44"/>
+<path class="edge" data-from="дизайн-проект" data-to="подбор-материалов" marker-end="url(#arrow)" d="M 148,128 C 250,128 250,212 352,212"/>
+<path class="edge" data-from="дизайн-проект" data-to="сценарий-освещения" marker-end="url(#arrow)" d="M 148,128 C 250,128 250,268 352,268"/>
+<path class="edge" data-from="малярка-второй-этаж" data-to="полы-чистовые-второй-этаж" marker-end="url(#arrow)" d="M 1508,212 C 1586,212 1586,128 1664,128"/>
+<path class="edge crit" data-from="малярка-второй-этаж" data-to="электрика-чистовая" marker-end="url(#arrow)" d="M 1508,212 C 1586,212 1586,184 1664,184"/>
+<path class="edge" data-from="малярка-первый-этаж" data-to="полы-чистовые-первый-этаж" marker-end="url(#arrow)" d="M 1508,156 C 1586,156 1586,72 1664,72"/>
+<path class="edge" data-from="малярка-первый-этаж" data-to="электрика-чистовая" marker-end="url(#arrow)" d="M 1508,156 C 1586,156 1586,184 1664,184"/>
+<path class="edge" data-from="перегородки-второй-этаж" data-to="сантехника-черновая-второй-этаж" marker-end="url(#arrow)" d="M 556,100 C 618,100 618,240 680,240"/>
+<path class="edge crit" data-from="перегородки-второй-этаж" data-to="электрика-черновая-второй-этаж" marker-end="url(#arrow)" d="M 556,100 C 618,100 618,128 680,128"/>
+<path class="edge" data-from="перегородки-первый-этаж" data-to="сантехника-черновая-первый-этаж" marker-end="url(#arrow)" d="M 556,44 C 618,44 618,184 680,184"/>
+<path class="edge" data-from="перегородки-первый-этаж" data-to="электрика-черновая-первый-этаж" marker-end="url(#arrow)" d="M 556,44 C 618,44 618,72 680,72"/>
+<path class="edge" data-from="плитка-санузлы-второй-этаж" data-to="сантехприборы" marker-end="url(#arrow)" d="M 1564,100 C 1614,100 1614,240 1664,240"/>
+<path class="edge" data-from="плитка-санузлы-второй-этаж" data-to="электрика-чистовая" marker-end="url(#arrow)" d="M 1564,100 C 1614,100 1614,184 1664,184"/>
+<path class="edge" data-from="плитка-санузлы-первый-этаж" data-to="сантехприборы" marker-end="url(#arrow)" d="M 1564,44 C 1614,44 1614,240 1664,240"/>
+<path class="edge" data-from="плитка-санузлы-первый-этаж" data-to="электрика-чистовая" marker-end="url(#arrow)" d="M 1564,44 C 1614,44 1614,184 1664,184"/>
+<path class="edge" data-from="полы-чистовые-второй-этаж" data-to="уборка-и-приёмка" marker-end="url(#arrow)" d="M 1884,128 C 1938,128 1938,156 1992,156"/>
+<path class="edge" data-from="полы-чистовые-первый-этаж" data-to="уборка-и-приёмка" marker-end="url(#arrow)" d="M 1884,72 C 1938,72 1938,156 1992,156"/>
+<path class="edge" data-from="сантехника-черновая-второй-этаж" data-to="стяжка-второй-этаж" marker-end="url(#arrow)" d="M 948,240 C 978,240 978,128 1008,128"/>
+<path class="edge" data-from="сантехника-черновая-второй-этаж" data-to="штукатурка-второй-этаж" marker-end="url(#arrow)" d="M 948,240 C 978,240 978,240 1008,240"/>
+<path class="edge" data-from="сантехника-черновая-первый-этаж" data-to="стяжка-первый-этаж" marker-end="url(#arrow)" d="M 948,184 C 978,184 978,72 1008,72"/>
+<path class="edge" data-from="сантехника-черновая-первый-этаж" data-to="штукатурка-первый-этаж" marker-end="url(#arrow)" d="M 948,184 C 978,184 978,184 1008,184"/>
+<path class="edge" data-from="сантехприборы" data-to="уборка-и-приёмка" marker-end="url(#arrow)" d="M 1796,240 C 1894,240 1894,156 1992,156"/>
+<path class="edge" data-from="стяжка-второй-этаж" data-to="плитка-санузлы-второй-этаж" marker-end="url(#arrow)" d="M 1172,128 C 1254,128 1254,100 1336,100"/>
+<path class="edge" data-from="стяжка-второй-этаж" data-to="полы-чистовые-второй-этаж" marker-end="url(#arrow)" d="M 1172,128 C 1418,128 1418,128 1664,128"/>
+<path class="edge" data-from="стяжка-второй-этаж" data-to="установка-дверей" marker-end="url(#arrow)" d="M 1172,128 C 1254,128 1254,268 1336,268"/>
+<path class="edge" data-from="стяжка-первый-этаж" data-to="плитка-санузлы-первый-этаж" marker-end="url(#arrow)" d="M 1172,72 C 1254,72 1254,44 1336,44"/>
+<path class="edge" data-from="стяжка-первый-этаж" data-to="полы-чистовые-первый-этаж" marker-end="url(#arrow)" d="M 1172,72 C 1418,72 1418,72 1664,72"/>
+<path class="edge" data-from="стяжка-первый-этаж" data-to="установка-дверей" marker-end="url(#arrow)" d="M 1172,72 C 1254,72 1254,268 1336,268"/>
+<path class="edge" data-from="установка-дверей" data-to="уборка-и-приёмка" marker-end="url(#arrow)" d="M 1484,268 C 1738,268 1738,156 1992,156"/>
+<path class="edge crit" data-from="штукатурка-второй-этаж" data-to="малярка-второй-этаж" marker-end="url(#arrow)" d="M 1204,240 C 1270,240 1270,212 1336,212"/>
+<path class="edge" data-from="штукатурка-второй-этаж" data-to="плитка-санузлы-второй-этаж" marker-end="url(#arrow)" d="M 1204,240 C 1270,240 1270,100 1336,100"/>
+<path class="edge" data-from="штукатурка-первый-этаж" data-to="малярка-первый-этаж" marker-end="url(#arrow)" d="M 1204,184 C 1270,184 1270,156 1336,156"/>
+<path class="edge" data-from="штукатурка-первый-этаж" data-to="плитка-санузлы-первый-этаж" marker-end="url(#arrow)" d="M 1204,184 C 1270,184 1270,44 1336,44"/>
+<path class="edge crit" data-from="электрика-черновая-второй-этаж" data-to="штукатурка-второй-этаж" marker-end="url(#arrow)" d="M 940,128 C 974,128 974,240 1008,240"/>
+<path class="edge" data-from="электрика-черновая-первый-этаж" data-to="штукатурка-первый-этаж" marker-end="url(#arrow)" d="M 940,72 C 974,72 974,184 1008,184"/>
+<path class="edge crit" data-from="электрика-чистовая" data-to="уборка-и-приёмка" marker-end="url(#arrow)" d="M 1828,184 C 1910,184 1910,156 1992,156"/>
+<g class="node done" data-id="дизайн-проект" transform="translate(24,108)"><rect width="124" height="40" rx="6"/><text x="10" y="13">дизайн-проект</text><text class="sub" x="10" y="28">дизайнер · 40</text><title>дизайн-проект</title></g>
+<g class="node done" data-id="демонтаж" transform="translate(24,164)"><rect width="140" height="40" rx="6"/><text x="10" y="13">демонтаж</text><text class="sub" x="10" y="28">отделочник · 40</text><title>демонтаж</title></g>
+<g class="node" data-id="перегородки-первый-этаж" transform="translate(352,24)"><rect width="204" height="40" rx="6"/><text x="10" y="13">перегородки-первый-этаж</text><text class="sub" x="10" y="28">отделочник · 40</text><title>перегородки-первый-этаж</title></g>
+<g class="node crit" data-id="перегородки-второй-этаж" transform="translate(352,80)"><rect width="204" height="40" rx="6"/><text x="10" y="13">перегородки-второй-этаж</text><text class="sub" x="10" y="28">отделочник · 32</text><title>перегородки-второй-этаж</title></g>
+<g class="node" data-id="вентиляция" transform="translate(352,136)"><rect width="132" height="40" rx="6"/><text x="10" y="13">вентиляция</text><text class="sub" x="10" y="28">сантехник · 24</text><title>вентиляция</title></g>
+<g class="node" data-id="электрика-черновая-первый-этаж" transform="translate(680,52)"><rect width="260" height="40" rx="6"/><text x="10" y="13">электрика-черновая-первый-этаж</text><text class="sub" x="10" y="28">электрик · 40</text><title>электрика-черновая-первый-этаж</title></g>
+<g class="node crit" data-id="электрика-черновая-второй-этаж" transform="translate(680,108)"><rect width="260" height="40" rx="6"/><text x="10" y="13">электрика-черновая-второй-этаж</text><text class="sub" x="10" y="28">электрик · 36</text><title>электрика-черновая-второй-этаж</title></g>
+<g class="node" data-id="сантехника-черновая-первый-этаж" transform="translate(680,164)"><rect width="268" height="40" rx="6"/><text x="10" y="13">сантехника-черновая-первый-этаж</text><text class="sub" x="10" y="28">сантехник · 32</text><title>сантехника-черновая-первый-этаж</title></g>
+<g class="node" data-id="сантехника-черновая-второй-этаж" transform="translate(680,220)"><rect width="268" height="40" rx="6"/><text x="10" y="13">сантехника-черновая-второй-этаж</text><text class="sub" x="10" y="28">сантехник · 28</text><title>сантехника-черновая-второй-этаж</title></g>
+<g class="node" data-id="стяжка-первый-этаж" transform="translate(1008,52)"><rect width="164" height="40" rx="6"/><text x="10" y="13">стяжка-первый-этаж</text><text class="sub" x="10" y="28">отделочник · 40</text><title>стяжка-первый-этаж</title></g>
+<g class="node" data-id="стяжка-второй-этаж" transform="translate(1008,108)"><rect width="164" height="40" rx="6"/><text x="10" y="13">стяжка-второй-этаж</text><text class="sub" x="10" y="28">отделочник · 32</text><title>стяжка-второй-этаж</title></g>
+<g class="node" data-id="штукатурка-первый-этаж" transform="translate(1008,164)"><rect width="196" height="40" rx="6"/><text x="10" y="13">штукатурка-первый-этаж</text><text class="sub" x="10" y="28">отделочник · 56</text><title>штукатурка-первый-этаж</title></g>
+<g class="node crit" data-id="штукатурка-второй-этаж" transform="translate(1008,220)"><rect width="196" height="40" rx="6"/><text x="10" y="13">штукатурка-второй-этаж</text><text class="sub" x="10" y="28">отделочник · 48</text><title>штукатурка-второй-этаж</title></g>
+<g class="node" data-id="подбор-материалов" transform="translate(352,192)"><rect width="156" height="40" rx="6"/><text x="10" y="13">подбор-материалов</text><text class="sub" x="10" y="28">дизайнер · 24</text><title>подбор-материалов</title></g>
+<g class="node" data-id="сценарий-освещения" transform="translate(352,248)"><rect width="164" height="40" rx="6"/><text x="10" y="13">сценарий-освещения</text><text class="sub" x="10" y="28">дизайнер · 16</text><title>сценарий-освещения</title></g>
+<g class="node" data-id="плитка-санузлы-первый-этаж" transform="translate(1336,24)"><rect width="228" height="40" rx="6"/><text x="10" y="13">плитка-санузлы-первый-этаж</text><text class="sub" x="10" y="28">плиточник · 48</text><title>плитка-санузлы-первый-этаж</title></g>
+<g class="node" data-id="плитка-санузлы-второй-этаж" transform="translate(1336,80)"><rect width="228" height="40" rx="6"/><text x="10" y="13">плитка-санузлы-второй-этаж</text><text class="sub" x="10" y="28">плиточник · 40</text><title>плитка-санузлы-второй-этаж</title></g>
+<g class="node" data-id="малярка-первый-этаж" transform="translate(1336,136)"><rect width="172" height="40" rx="6"/><text x="10" y="13">малярка-первый-этаж</text><text class="sub" x="10" y="28">отделочник · 48</text><title>малярка-первый-этаж</title></g>
+<g class="node crit" data-id="малярка-второй-этаж" transform="translate(1336,192)"><rect width="172" height="40" rx="6"/><text x="10" y="13">малярка-второй-этаж</text><text class="sub" x="10" y="28">отделочник · 40</text><title>малярка-второй-этаж</title></g>
+<g class="node" data-id="установка-дверей" transform="translate(1336,248)"><rect width="148" height="40" rx="6"/><text x="10" y="13">установка-дверей</text><text class="sub" x="10" y="28">столяр · 24</text><title>установка-дверей</title></g>
+<g class="node" data-id="полы-чистовые-первый-этаж" transform="translate(1664,52)"><rect width="220" height="40" rx="6"/><text x="10" y="13">полы-чистовые-первый-этаж</text><text class="sub" x="10" y="28">столяр · 32</text><title>полы-чистовые-первый-этаж</title></g>
+<g class="node" data-id="полы-чистовые-второй-этаж" transform="translate(1664,108)"><rect width="220" height="40" rx="6"/><text x="10" y="13">полы-чистовые-второй-этаж</text><text class="sub" x="10" y="28">столяр · 24</text><title>полы-чистовые-второй-этаж</title></g>
+<g class="node crit" data-id="электрика-чистовая" transform="translate(1664,164)"><rect width="164" height="40" rx="6"/><text x="10" y="13">электрика-чистовая</text><text class="sub" x="10" y="28">электрик · 32</text><title>электрика-чистовая</title></g>
+<g class="node" data-id="сантехприборы" transform="translate(1664,220)"><rect width="132" height="40" rx="6"/><text x="10" y="13">сантехприборы</text><text class="sub" x="10" y="28">сантехник · 24</text><title>сантехприборы</title></g>
+<g class="node crit" data-id="уборка-и-приёмка" transform="translate(1992,136)"><rect width="148" height="40" rx="6"/><text x="10" y="13">уборка-и-приёмка</text><text class="sub" x="10" y="28">отделочник · 24</text><title>уборка-и-приёмка</title></g>
+</g>
+</svg>
+<script>
+(function () {
+  var svg = document.querySelector('svg');
+  var view = document.getElementById('view');
+  var W = +svg.dataset.w, H = +svg.dataset.h;
+  var nodes = Array.prototype.slice.call(svg.querySelectorAll('.node'));
+  var edges = Array.prototype.slice.call(svg.querySelectorAll('.edge'));
+  var tx = 0, ty = 0, k = 1;
+  var pinned = null, down = null;
+
+  function apply() {
+    view.setAttribute('transform', 'translate(' + tx + ',' + ty + ') scale(' + k + ')');
+  }
+  function fit() {
+    k = Math.min((window.innerWidth - 48) / W, (window.innerHeight - 48) / H, 1);
+    if (!isFinite(k) || k <= 0) k = 1;
+    tx = (window.innerWidth - W * k) / 2;
+    ty = (window.innerHeight - H * k) / 2;
+    apply();
+  }
+  function setHot(id) {
+    svg.classList.add('dim');
+    nodes.forEach(function (m) {
+      if (m.getAttribute('data-id') === id) m.classList.add('hot');
+    });
+    edges.forEach(function (e) {
+      var f = e.getAttribute('data-from'), t = e.getAttribute('data-to');
+      if (f !== id && t !== id) return;
+      e.classList.add('hot');
+      var other = f === id ? t : f;
+      nodes.forEach(function (m) {
+        if (m.getAttribute('data-id') === other) m.classList.add('hot');
+      });
+    });
+  }
+  function clearHot() {
+    svg.classList.remove('dim');
+    nodes.forEach(function (m) { m.classList.remove('hot'); });
+    edges.forEach(function (e) { e.classList.remove('hot'); });
+  }
+  // The pin: a click leaves a node's highlight standing after mouseleave.
+  // Hovering overrides it while over a node; leaving restores it.
+  function applyPin() {
+    clearHot();
+    if (pinned !== null) setHot(pinned);
+  }
+
+  nodes.forEach(function (node) {
+    var id = node.getAttribute('data-id');
+    node.addEventListener('mouseenter', function () { setHot(id); });
+    node.addEventListener('mouseleave', applyPin);
+  });
+
+  svg.addEventListener('wheel', function (ev) {
+    ev.preventDefault();
+    var r = svg.getBoundingClientRect();
+    var f = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
+    var mx = ev.clientX - r.left, my = ev.clientY - r.top;
+    tx = mx - (mx - tx) * f;
+    ty = my - (my - ty) * f;
+    k *= f;
+    apply();
+  }, { passive: false });
+
+  var drag = null;
+  svg.addEventListener('pointerdown', function (ev) {
+    if (ev.button !== 0) return;
+    drag = { x: ev.clientX, y: ev.clientY, tx: tx, ty: ty };
+    // The pointer is captured to the svg on down, so the up targets the
+    // svg; the node a click means is read off the down's target.
+    down = { x: ev.clientX, y: ev.clientY, target: ev.target };
+    svg.setPointerCapture(ev.pointerId);
+  });
+  svg.addEventListener('pointermove', function (ev) {
+    if (!drag) return;
+    tx = drag.tx + ev.clientX - drag.x;
+    ty = drag.ty + ev.clientY - drag.y;
+    apply();
+  });
+  svg.addEventListener('pointerup', function (ev) {
+    // A click is an up that stayed within a few pixels of its down; a pan
+    // drag never moves the pin. Background (any non-node) clears it.
+    if (down && ev.button === 0) {
+      var dx = ev.clientX - down.x, dy = ev.clientY - down.y;
+      if (dx * dx + dy * dy <= 16) {
+        var node = down.target.closest('.node');
+        var id = node ? node.getAttribute('data-id') : null;
+        pinned = id === pinned ? null : id;
+        applyPin();
+      }
+    }
+    drag = null;
+    down = null;
+  });
+  svg.addEventListener('dblclick', fit);
+  window.addEventListener('resize', fit);
+  fit();
+})();
+</script>
+</body>
+</html>

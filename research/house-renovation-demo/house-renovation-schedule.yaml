@@ -1,0 +1,155 @@
+start: 2026-11-05
+deadline: 2027-02-26
+plan-end: 2027-02-03
+slippage-days: 0
+latest-start: 2026-11-28
+critical-path:
+- перегородки-второй-этаж
+- электрика-черновая-второй-этаж
+- штукатурка-второй-этаж
+- малярка-второй-этаж
+- электрика-чистовая
+- уборка-и-приёмка
+tasks:
+  дизайн-проект:
+    status: done
+  демонтаж:
+    status: done
+  перегородки-первый-этаж:
+    executor: михаил
+    start: 2026-11-05
+    end: 2026-11-12
+    active-days: 7
+    status: in-progress
+  перегородки-второй-этаж:
+    executor: михаил
+    start: 2026-11-13
+    end: 2026-11-19
+    active-days: 6
+    status: todo
+  вентиляция:
+    executor: сергей
+    start: 2026-11-05
+    end: 2026-11-07
+    active-days: 3
+    status: todo
+  электрика-черновая-первый-этаж:
+    executor: виктор
+    start: 2026-11-13
+    end: 2026-11-18
+    active-days: 5
+    status: todo
+  электрика-черновая-второй-этаж:
+    executor: виктор
+    start: 2026-11-20
+    end: 2026-11-25
+    active-days: 5
+    status: todo
+  сантехника-черновая-первый-этаж:
+    executor: сергей
+    start: 2026-11-13
+    end: 2026-11-17
+    active-days: 4
+    status: todo
+  сантехника-черновая-второй-этаж:
+    executor: сергей
+    start: 2026-11-20
+    end: 2026-11-24
+    active-days: 4
+    status: todo
+  стяжка-первый-этаж:
+    executor: михаил
+    start: 2026-12-02
+    end: 2026-12-09
+    active-days: 7
+    status: todo
+  стяжка-второй-этаж:
+    executor: михаил
+    start: 2026-12-19
+    end: 2026-12-24
+    active-days: 6
+    status: todo
+  штукатурка-первый-этаж:
+    executor: михаил
+    start: 2026-11-20
+    end: 2026-12-01
+    active-days: 10
+    status: todo
+  штукатурка-второй-этаж:
+    executor: михаил
+    start: 2026-12-10
+    end: 2026-12-18
+    active-days: 8
+    status: todo
+  подбор-материалов:
+    executor: анна
+    start: 2026-11-05
+    end: 2026-11-11
+    active-days: 6
+    status: todo
+  сценарий-освещения:
+    executor: агент-подбора
+    start: 2026-11-05
+    end: 2026-11-06
+    active-days: 2
+    status: todo
+  плитка-санузлы-первый-этаж:
+    executor: григорий
+    start: 2026-12-10
+    end: 2026-12-16
+    active-days: 6
+    status: todo
+  плитка-санузлы-второй-этаж:
+    executor: григорий
+    start: 2026-12-25
+    end: 2026-12-30
+    active-days: 5
+    status: todo
+  малярка-первый-этаж:
+    executor: михаил
+    start: 2026-12-25
+    end: 2027-01-16
+    active-days: 8
+    status: todo
+  малярка-второй-этаж:
+    executor: михаил
+    start: 2027-01-18
+    end: 2027-01-25
+    active-days: 7
+    status: todo
+  установка-дверей:
+    executor: павел
+    start: 2026-12-25
+    end: 2026-12-28
+    active-days: 3
+    status: blocked
+  полы-чистовые-первый-этаж:
+    executor: павел
+    start: 2027-01-18
+    end: 2027-01-21
+    active-days: 4
+    status: todo
+  полы-чистовые-второй-этаж:
+    executor: павел
+    start: 2027-01-26
+    end: 2027-01-28
+    active-days: 3
+    status: todo
+  электрика-чистовая:
+    executor: виктор
+    start: 2027-01-26
+    end: 2027-01-29
+    active-days: 4
+    status: todo
+  сантехприборы:
+    executor: сергей
+    start: 2027-01-09
+    end: 2027-01-12
+    active-days: 3
+    status: todo
+  уборка-и-приёмка:
+    executor: михаил
+    start: 2027-01-30
+    end: 2027-02-03
+    active-days: 4
+    status: todo
