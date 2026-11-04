@@ -54,7 +54,7 @@ fn a_name_that_is_not_a_slug_is_refused_every_offender_at_once() {
             report
                 .errors
                 .iter()
-                .any(|e| e.contains(offender) && e.contains("kebab-case slug")),
+                .any(|e| e.contains(offender) && e.contains("must be a slug")),
             "no error names {offender}: {:?}",
             report.errors
         );
@@ -77,6 +77,21 @@ fn slug_edges_hold_at_the_table() {
         "foo bar",
         "foo:bar",
         "",
+    ] {
+        assert!(!planning_dsl::is_slug(name), "`{name}` must fail");
+    }
+}
+
+#[test]
+fn cyrillic_slugs_hold_and_scripts_do_not_mix() {
+    for name in ["перегородки-первый-этаж", "уборка-и-приёмка", "электрик2", "анна"] {
+        assert!(planning_dsl::is_slug(name), "`{name}` must pass");
+    }
+    for name in [
+        "ремонт-2f",   // a latin letter in a cyrillic name: a second script
+        "pемонт",      // latin `p` before cyrillic letters — the homoglyph trap
+        "Перегородки", // cyrillic uppercase
+        "демонтаж:",   // the gantt splitter the slug rule keeps out
     ] {
         assert!(!planning_dsl::is_slug(name), "`{name}` must fail");
     }

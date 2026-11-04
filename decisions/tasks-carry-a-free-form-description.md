@@ -4,7 +4,7 @@ Tags: tasks, naming, plan-format
 
 ## Rationale
 
-A task carries an optional free-form `description:` — prose about the work that no slug can say. With identifying-names-are-kebab-case-slugs the division of labour is fixed: the name identifies (the slug, the key every consumer — scheduler, renderer, tracker — addresses), the description describes (what the work is, why it is shaped this way). The producer is the authoring skill: a grilling interview harvests this prose anyway and had nowhere to put it; the readers are the implementing agents, who open the plan and read the prose instead of re-deriving it from a name. Optional: a self-evident name needs no prose, and absence serializes away.
+A task carries an optional free-form `description:` — prose about the work that no slug can say. With identifying-names-are-lowercase-latin-or-cyrillic-slugs the division of labour is fixed: the name identifies (the slug, the key every consumer — scheduler, renderer, tracker — addresses), the description describes (what the work is, why it is shaped this way). The producer is the authoring skill: a grilling interview harvests this prose anyway and had nowhere to put it; the readers are the implementing agents, who open the plan and read the prose instead of re-deriving it from a name. Optional: a self-evident name needs no prose, and absence serializes away.
 
 Roles already carry optional descriptions (roles-are-a-declared-vocabulary-enforced-by-validation); this brings tasks to the same shape.
 
@@ -16,4 +16,4 @@ Roles already carry optional descriptions (roles-are-a-declared-vocabulary-enfor
 
 ## Evidence
 
-The maintainer's «ок» of 2026-11-04 — the third of the three answers recorded in identifying-names-are-kebab-case-slugs. Implemented as `Task.description` in `src/model.rs` (optional, free-form, `skip_serializing_if` so it omits cleanly); the renderers stay functions of names and dates — the canonical example carries a description and its mermaid, HTML and gantt goldens are byte-identical.
+The maintainer's «ок» of 2026-11-04 — the third of the three answers originally recorded in identifying-names-are-kebab-case-slugs (retracted 2026-11-04, successor: identifying-names-are-lowercase-latin-or-cyrillic-slugs; the record lives in git history). Implemented as `Task.description` in `src/model.rs` (optional, free-form, `skip_serializing_if` so it omits cleanly); the renderers stay functions of names and dates — the canonical example carries a description and its mermaid, HTML and gantt goldens are byte-identical.

@@ -61,24 +61,26 @@ fn check_dates(plan: &Plan, r: &mut Report) {
 }
 
 /// The naming door: the identifying names — the mapping keys of `tasks:`,
-/// `executors:` and `roles:` — are kebab-case slugs; free-form text belongs
-/// in `description:` fields, never in a decorated name
-/// (identifying-names-are-kebab-case-slugs). Like the estimate gate, it
-/// names every offender, never just the first.
+/// `executors:` and `roles:` — are lowercase Latin or Cyrillic slugs;
+/// free-form text belongs in `description:` fields, never in a decorated name
+/// (identifying-names-are-lowercase-latin-or-cyrillic-slugs). Like the
+/// estimate gate, it names every offender, never just the first.
 fn check_names(plan: &Plan, r: &mut Report) {
     for name in plan.tasks.keys() {
         if !is_slug(name) {
             r.errors.push(format!(
-                "task `{name}`: name must be a kebab-case slug \
-                 (lowercase letters and digits, hyphen-separated, starting with a letter)"
+                "task `{name}`: name must be a slug (lowercase Latin or Cyrillic \
+                 letters and digits, hyphen-separated, starting with a letter, \
+                 one script per name)"
             ));
         }
     }
     for name in plan.executors.keys() {
         if !is_slug(name) {
             r.errors.push(format!(
-                "executor `{name}`: name must be a kebab-case slug \
-                 (lowercase letters and digits, hyphen-separated, starting with a letter)"
+                "executor `{name}`: name must be a slug (lowercase Latin or Cyrillic \
+                 letters and digits, hyphen-separated, starting with a letter, \
+                 one script per name)"
             ));
         }
     }
@@ -87,27 +89,32 @@ fn check_names(plan: &Plan, r: &mut Report) {
     for name in plan.roles.keys() {
         if !is_slug(name) {
             r.errors.push(format!(
-                "role `{name}`: name must be a kebab-case slug \
-                 (lowercase letters and digits, hyphen-separated, starting with a letter)"
+                "role `{name}`: name must be a slug (lowercase Latin or Cyrillic \
+                 letters and digits, hyphen-separated, starting with a letter, \
+                 one script per name)"
             ));
         }
     }
 }
 
-/// The slug rule as code: `NAME_PATTERN` — starts with a lowercase letter,
-/// then lowercase letters and digits, hyphens only as separators. The schema
-/// carries the same regex (`model::NAME_PATTERN`), so a name that passes
-/// here passes there.
+/// The slug rule as code: `NAME_PATTERN` — starts with a lowercase letter
+/// (Latin or Cyrillic, `ё` included), then lowercase letters and digits of
+/// that same script, hyphens only as separators; one script per name. The
+/// schema carries the same regex (`model::NAME_PATTERN`), so a name that
+/// passes here passes there.
 pub fn is_slug(name: &str) -> bool {
     let mut chars = name.chars();
-    match chars.next() {
-        Some(c) if c.is_ascii_lowercase() => {}
+    let cyrillic = match chars.next() {
+        Some(c) if c.is_ascii_lowercase() => false,
+        Some(c) if matches!(c, 'а'..='я' | 'ё') => true,
         _ => return false,
-    }
+    };
     let mut after_hyphen = false;
     for c in chars {
         match c {
-            'a'..='z' | '0'..='9' => after_hyphen = false,
+            '0'..='9' => after_hyphen = false,
+            'a'..='z' if !cyrillic => after_hyphen = false,
+            'а'..='я' | 'ё' if cyrillic => after_hyphen = false,
             '-' if !after_hyphen => after_hyphen = true,
             _ => return false,
         }
