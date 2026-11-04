@@ -1,157 +1,160 @@
-# research/house-renovation-demo/house-renovation.yaml — a demo plan:
-# renovating the interior of a two-story house, starting from the rough stage.
-# Structure only; assignment, timing and the critical path are derived.
+# research/house-renovation-demo/house-renovation.yaml — демо-план:
+# ремонт интерьера двухэтажного дома, начиная с черновой стадии.
+# Только структура; назначение, сроки и критический путь вычисляются.
+# Имена (задачи, роли, исполнители) — латинские кебаб-слаги по решению
+# identifying-names-are-kebab-case-slugs: валидатор кириллицу отвергает,
+# русский смысл живёт в описаниях и глоссах.
 unit: person-hours
-start: 2026-11-05               # the crew walks in the day after Unity Day
-deadline: 2027-02-26            # the family moves in for the March dacha season
+start: 2026-11-05               # бригада заходит на следующий день после Дня народного единства
+deadline: 2027-02-26            # семья заселяется к дачному сезону в марте
 
 calendar:
-  workdays: [mon, tue, wed, thu, fri, sat]  # a construction crew keeps a six-day week
+  workdays: [mon, tue, wed, thu, fri, sat]  # стройбригада живёт шестидневкой
   holidays: [2026-11-04, 2026-12-31, 2027-01-01, 2027-01-02, 2027-01-03, 2027-01-04, 2027-01-05, 2027-01-06, 2027-01-07, 2027-01-08]
-  extra-workdays: [2026-12-20]  # a push Sunday before the holiday lull
+  extra-workdays: [2026-12-20]  # договорное воскресенье перед праздничным затишьем
 
-roles:
-  designer: the interior design project, material and lighting selections
-  electrician: rough cabling in the walls, finish sockets, switches and lights
-  plumber: rough plumbing and ventilation, finish bathroom fixtures
-  finisher: partitions, plaster, floor screed, painting
-  tiler: bathroom and splashback tile
-  joiner: interior doors and finish flooring
+roles:                          # словарь ролей — проверяется валидатором
+  designer: дизайн-проект интерьера, подбор материалов и света
+  electrician: скрытая проводка, чистовые розетки, выключатели и свет
+  plumber: скрытая сантехника и вентиляция, чистовая сантехника
+  finisher: перегородки, штукатурка, стяжка пола, малярка
+  tiler: плитка в санузлах и фартук
+  joiner: межкомнатные двери и чистовые полы
 
 tasks:
-  # --- happened before the plan existed: seeded done, never touched again ---
-  design-project:
-    status: done                # done tasks are exempt from the estimate gate
+  # --- случилось до появления плана: засеяно done, больше не трогаем ---
+  design-project:               # дизайн-проект
+    status: done                # задачи done освобождены от потолка оценки
     role: designer
     estimate: 40
-  demolition:
+  demolition:                   # демонтаж
     status: done
-    description: strip the old finishes, open the walls for the new runs
+    description: снять старую отделку, вскрыть стены под новые трассы
     role: finisher
     estimate: 40
 
-  # --- the rough stage: walls, hidden cabling and pipes, screeds ---
-  partitions-first-floor:
-    status: in-progress         # seeded from the interview; sync owns it from here
+  # --- черновая стадия: стены, скрытые провода и трубы, стяжки ---
+  partitions-first-floor:       # перегородки первого этажа
+    status: in-progress         # засеяно с интервью; дальше статус ведёт синк
     depends-on: [demolition]
     role: finisher
     estimate: 40
-  partitions-second-floor:
+  partitions-second-floor:      # перегородки второго этажа
     depends-on: [demolition]
     role: finisher
     estimate: 32
-  ventilation-ducts:
+  ventilation-ducts:            # короба вентиляции
     depends-on: [demolition]
-    description: the supply and extract runs hidden above suspended ceilings
+    description: приточка и вытяжка, скрытые за натяжными потолками
     role: plumber
     estimate: 24
-  rough-electrical-first-floor:
+  rough-electrical-first-floor: # электрика черновая, первый этаж
     depends-on: [partitions-first-floor]
     role: electrician
     estimate: 40
-  rough-electrical-second-floor:
+  rough-electrical-second-floor: # электрика черновая, второй этаж
     depends-on: [partitions-second-floor]
     role: electrician
     estimate: 36
-  rough-plumbing-first-floor:
+  rough-plumbing-first-floor:   # сантехника черновая, первый этаж
     depends-on: [partitions-first-floor]
     role: plumber
     estimate: 32
-  rough-plumbing-second-floor:
+  rough-plumbing-second-floor:  # сантехника черновая, второй этаж
     depends-on: [partitions-second-floor]
     role: plumber
     estimate: 28
-  floor-screed-first-floor:
+  floor-screed-first-floor:     # стяжка пола, первый этаж
     depends-on: [rough-plumbing-first-floor, ventilation-ducts]
     role: finisher
     estimate: 40
-  floor-screed-second-floor:
+  floor-screed-second-floor:    # стяжка пола, второй этаж
     depends-on: [rough-plumbing-second-floor]
     role: finisher
     estimate: 32
-  plaster-walls-first-floor:
+  plaster-walls-first-floor:    # штукатурка стен, первый этаж
     depends-on: [rough-electrical-first-floor, rough-plumbing-first-floor]
     role: finisher
     estimate: 56
-  plaster-walls-second-floor:
+  plaster-walls-second-floor:   # штукатурка стен, второй этаж
     depends-on: [rough-electrical-second-floor, rough-plumbing-second-floor]
     role: finisher
     estimate: 48
 
-  # --- selections: a role both the part-time designer and the agent can take ---
-  select-and-order-materials:
+  # --- подбор материалов: роль, которую может взять и дизайнер, и агент ---
+  select-and-order-materials:   # подобрать и заказать материалы
     depends-on: [design-project]
-    description: tile, parquet, paint palettes and sanitary ware, compared and ordered
+    description: плитка, паркет, палитры красок и сантехника — сравнить и заказать
     role: designer
     estimate: 24
-  lighting-scenario:
+  lighting-scenario:            # сценарий освещения
     depends-on: [design-project]
     role: designer
     estimate: 16
 
-  # --- the finish stage ---
-  tile-bathrooms-first-floor:
+  # --- чистовая стадия ---
+  tile-bathrooms-first-floor:   # плитка в санузлах, первый этаж
     depends-on: [plaster-walls-first-floor, floor-screed-first-floor]
     role: tiler
     estimate: 48
-  tile-bathrooms-second-floor:
+  tile-bathrooms-second-floor:  # плитка в санузлах, второй этаж
     depends-on: [plaster-walls-second-floor, floor-screed-second-floor]
     role: tiler
     estimate: 40
-  paint-walls-first-floor:
+  paint-walls-first-floor:      # малярка, первый этаж
     depends-on: [plaster-walls-first-floor, ventilation-ducts]
     role: finisher
     estimate: 48
-  paint-walls-second-floor:
+  paint-walls-second-floor:     # малярка, второй этаж
     depends-on: [plaster-walls-second-floor, ventilation-ducts]
     role: finisher
     estimate: 40
-  interior-doors-install:
-    status: blocked             # blocked still schedules: capacity, not truth
-    blocked-reason: door leaves stuck at the supplier, delivery window unknown
+  interior-doors-install:       # установка межкомнатных дверей
+    status: blocked             # blocked всё равно планируется: мощность, а не правда
+    blocked-reason: дверные полотна застряли у поставщика, срок поставки неизвестен
     depends-on: [floor-screed-first-floor, floor-screed-second-floor]
     role: joiner
     estimate: 24
-  floor-covering-first-floor:
+  floor-covering-first-floor:   # чистовые полы, первый этаж
     depends-on: [floor-screed-first-floor, paint-walls-first-floor]
     role: joiner
     estimate: 32
-  floor-covering-second-floor:
+  floor-covering-second-floor:  # чистовые полы, второй этаж
     depends-on: [floor-screed-second-floor, paint-walls-second-floor]
     role: joiner
     estimate: 24
-  finish-electrical:
+  finish-electrical:            # чистовая электрика
     depends-on: [paint-walls-first-floor, paint-walls-second-floor, tile-bathrooms-first-floor, tile-bathrooms-second-floor]
-    description: sockets, switches, the switchboard and the light fixtures
+    description: розетки, выключатели, щиток и светильники
     role: electrician
     estimate: 32
-  plumbing-fixtures-install:
+  plumbing-fixtures-install:    # установка сантехприборов
     depends-on: [tile-bathrooms-first-floor, tile-bathrooms-second-floor]
     role: plumber
     estimate: 24
-  final-cleaning-and-acceptance:
+  final-cleaning-and-acceptance: # уборка и приёмка
     depends-on: [floor-covering-first-floor, floor-covering-second-floor, finish-electrical, plumbing-fixtures-install, interior-doors-install]
     role: finisher
     estimate: 24
 
 executors:
-  anna:                         # the designer: her side practice, 4 h a day
+  anna:                         # Анна — дизайнер, подработка по 4 ч в день
     roles: [designer]
     availability: 0.5
     ids: { trello: ANNA-7 }
-  mikhail:                      # the finisher who also lays tile: weights split his day
-    role-weights: { finisher: 3, tiler: 1 }   # 6 h finishing, 2 h tiling
+  mikhail:                      # Михаил — отделочник, подрабатывающий плиточником
+    role-weights: { finisher: 3, tiler: 1 }   # 6 ч отделки, 2 ч плитки в день
     availability:
-      - { from: 2026-12-28, until: 2027-01-10, fraction: 0.0 }  # New Year break
-  grigory:
+      - { from: 2026-12-28, until: 2027-01-10, fraction: 0.0 }  # новогодний перерыв
+  grigory:                      # Григорий — плиточник
     roles: [tiler]
-  viktor:
+  viktor:                       # Виктор — электрик
     roles: [electrician]
-  sergey:
+  sergey:                       # Сергей — сантехник
     roles: [plumber]
-  pavel:
+  pavel:                        # Павел — столяр
     roles: [joiner]
-  material-agent:               # an agent: slots, not hours
+  material-agent:               # агент: слоты, а не часы
     roles: [designer]
     concurrency: 2
-    calendar: all               # researches every day, weekends included
+    calendar: all               # работает каждый день, включая выходные
