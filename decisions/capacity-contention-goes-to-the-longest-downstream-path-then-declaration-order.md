@@ -19,4 +19,4 @@ The rule stays explainable to a human team in one sentence ("your longest chain 
 
 ## Evidence
 
-Agent session of 2026-11-03, drafting `specs/scheduler.md` for task [settle-the-capacity-contention-tie-break](../tasks/settle-the-capacity-contention-tie-break.md). Recorded here as an autodecision because the session chose it without the human; the maintainer promotes it to `decisions/` by accepting it (the task file said `decisions/`, but the working system puts agent-chosen choices in `autodecisions/`).
+Agent session of 2026-11-03, drafting `specs/scheduler.md`; recorded as an autodecision because the session chose it without the human. Accepted by the maintainer on 2026-11-04 with the rest of the scheduler spec, and promoted to `decisions/`.

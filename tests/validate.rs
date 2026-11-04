@@ -136,9 +136,106 @@ fn an_out_of_range_fraction_and_overlapping_periods_are_rejected() {
 }
 
 #[test]
-fn a_missing_deadline_dies_at_parse() {
-    let err = check(fixture!("bad-missing-deadline.yaml")).expect_err("must not parse");
-    assert!(err.contains("deadline"), "{err}");
+fn a_plan_without_dates_validates_clean() {
+    // Both dates are optional: an uncommitted deadline is invented data,
+    // worse than none.
+    let report = check(fixture!("plan-without-dates.yaml")).expect("parses");
+    assert!(report.is_ok(), "errors: {:?}", report.errors);
+}
+
+#[test]
+fn a_start_after_the_deadline_is_rejected() {
+    let yaml = "
+unit: person-hours
+start: 2026-12-20
+deadline: 2026-12-18
+roles:
+  dev: implements
+tasks:
+  ship: { role: dev, estimate: 8 }
+executors:
+  anton: { roles: [dev] }
+";
+    let report = check(yaml).expect("parses");
+    assert!(
+        report
+            .errors
+            .iter()
+            .any(|e| e.contains("start (2026-12-20) is after the deadline (2026-12-18)")),
+        "{:?}",
+        report.errors
+    );
+}
+
+#[test]
+fn a_mispelled_weekday_dies_at_parse_with_the_names() {
+    let yaml = "
+unit: person-hours
+calendar:
+  workdays: [mon, mondau]
+roles:
+  dev: implements
+tasks:
+  ship: { role: dev, estimate: 8 }
+executors:
+  anton: { roles: [dev] }
+";
+    let err = check(yaml).expect_err("must not parse");
+    assert!(err.contains("mondau"), "{err}");
+    assert!(err.contains("mon"), "{err}");
+}
+
+#[test]
+fn calendar_contradictions_are_named() {
+    let yaml = "
+unit: person-hours
+calendar:
+  workdays: [mon, tue, mon]
+  holidays: [2026-11-04]
+  extra-workdays: [2026-11-04]
+roles:
+  dev: implements
+tasks:
+  ship: { role: dev, estimate: 8 }
+executors:
+  anton: { roles: [dev] }
+";
+    let report = check(yaml).expect("parses");
+    assert!(
+        report.errors.iter().any(|e| e.contains("workdays repeat mon")),
+        "{:?}",
+        report.errors
+    );
+    assert!(
+        report.errors.iter().any(|e| e.contains(
+            "2026-11-04 is both a holiday and an extra-workday"
+        )),
+        "{:?}",
+        report.errors
+    );
+}
+
+#[test]
+fn an_executor_calendar_that_is_neither_all_nor_an_object_is_rejected() {
+    let yaml = "
+unit: person-hours
+roles:
+  dev: implements
+tasks:
+  ship: { role: dev, estimate: 8 }
+executors:
+  bot:
+    roles: [dev]
+    calendar: everyday
+";
+    let report = check(yaml).expect("parses");
+    assert!(
+        report.errors.iter().any(|e| e.contains(
+            "executor `bot`: calendar must be `all` or a calendar object (found \"everyday\")"
+        )),
+        "{:?}",
+        report.errors
+    );
 }
 
 #[test]
@@ -182,6 +279,11 @@ fn the_json_schema_carries_the_plan_vocabulary() {
         "availability",
         "concurrency",
         "person-hours",
+        "start",
+        "calendar",
+        "workdays",
+        "holidays",
+        "extra-workdays",
     ] {
         assert!(schema.contains(token), "schema is missing `{token}`");
     }

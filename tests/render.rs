@@ -22,22 +22,23 @@ fn the_canonical_example_renders_the_expected_mermaid() {
          \x20   implement-services[\"implement-services\"]\n\
          \x20   implement-tests[\"implement-tests\"]\n\
          \x20   plan-out-the-tasks[\"plan-out-the-tasks\"]\n\
-         \x20   implement-services --> plan-out-the-tasks\n\
-         \x20   implement-tests --> plan-out-the-tasks\n\
-         \x20   plan-out-the-tasks --> design-architecture\n"
+         \x20   design-architecture --> plan-out-the-tasks\n\
+         \x20   plan-out-the-tasks --> implement-services\n\
+         \x20   plan-out-the-tasks --> implement-tests\n"
     );
 }
 
 #[test]
-fn mermaid_edges_point_from_a_task_to_what_it_depends_on() {
+fn mermaid_edges_point_from_a_dependency_to_its_dependent() {
+    // The community convention: arrows follow execution order.
     let plan = load(PLAN).expect("parses");
     let mmd = render::mermaid(&plan);
     assert!(
-        mmd.contains("    plan-out-the-tasks --> design-architecture\n"),
+        mmd.contains("    design-architecture --> plan-out-the-tasks\n"),
         "{mmd}"
     );
     assert!(
-        !mmd.contains("design-architecture --> plan-out-the-tasks"),
+        !mmd.contains("plan-out-the-tasks --> design-architecture"),
         "{mmd}"
     );
 }
@@ -91,7 +92,7 @@ executors:
     let plan = load(yaml).expect("parses");
     let mmd = render::mermaid(&plan);
     assert!(mmd.contains("t0[\"end\"]"), "{mmd}");
-    assert!(mmd.contains("    t1 --> t0\n"), "{mmd}");
+    assert!(mmd.contains("    t0 --> t1\n"), "{mmd}");
     assert!(!mmd.contains("end["), "{mmd}");
 }
 
@@ -144,7 +145,7 @@ fn every_task_is_one_node_and_every_dependency_one_edge() {
     assert_eq!(html.matches("class=\"node\"").count(), 4, "{html}");
     assert_eq!(html.matches("class=\"edge\"").count(), 3, "{html}");
     assert!(
-        html.contains("data-from=\"implement-services\" data-to=\"plan-out-the-tasks\""),
+        html.contains("data-from=\"plan-out-the-tasks\" data-to=\"implement-services\""),
         "{html}"
     );
     for name in [

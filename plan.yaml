@@ -1,10 +1,12 @@
 # plan.yaml — planning-dsl's remaining work, authored by the author-plan
-# interview (dogfood run, 2026-11-03). Structure lives here; status flows
-# back from trackers; nothing computed.
+# interview (dogfood run, 2026-11-03); dates and statuses settled with the
+# maintainer on 2026-11-04. Structure lives here; status flows back from
+# trackers; nothing computed.
 unit: person-hours
-deadline: 2026-12-01            # proposed by the authoring session; maintainer to confirm
+start: 2026-11-03             # execution began with the authoring session
+# no deadline yet: an uncommitted deadline is invented data, worse than none
 
-roles:                          # the kinds of work this repo's sessions actually do
+roles:                        # the kinds of work this repo's sessions actually do
   maintainer: accepts decisions and specs, reviews agent work, owns direction
   designer: runs grilling rounds and writes the decisions, specs and skills they produce
   dev: implements the Rust tooling — validator, scheduler, renderers
@@ -15,19 +17,22 @@ tasks:
     role: designer
     estimate: 4
   review-and-accept-the-plan:
+    status: done                # maintainer round, 2026-11-04: plan, scheduler spec, calendar
     role: maintainer
     estimate: 2
   settle-tie-break:
+    status: done                # autodecision 2026-11-03, accepted and promoted 2026-11-04
     role: designer
     estimate: 4                 # one light grilling round; three rounds settled twelve decisions on 2026-11-02
   draft-scheduler-spec:
-    depends-on: [settle-tie-break]
+    status: done                # accepted 2026-11-04
     role: designer
     estimate: 8
   implement-scheduler:
     depends-on: [draft-scheduler-spec]
     role: dev                   # unestimated: nothing scheduler-scale exists in this repo to scale from
   render-mermaid-and-html-graph:
+    status: done                # 2026-11-03
     role: dev
     estimate: 8                 # validator-scale or smaller; the validator was one session (b459d6c)
   render-gantt:
@@ -37,11 +42,12 @@ tasks:
 
 executors:
   nikita:
-    roles: [maintainer, designer]
-    availability: 0.5           # part-time on this project
+    roles: [maintainer, designer]    # full working days: nothing said — full
   design-agent:
     roles: [designer]
     concurrency: 2              # grilling/spec-drafting sessions in parallel
+    calendar: all               # an agent: works every day, no holidays
   dev-agent:
     roles: [dev]
     concurrency: 2              # implementation sessions in parallel
+    calendar: all

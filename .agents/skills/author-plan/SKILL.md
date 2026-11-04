@@ -5,7 +5,7 @@ description: Author or refine a plan.yaml for a team (humans and agents) through
 
 # Author a plan
 
-The artifact is `plan.yaml`: tasks as a dependency DAG with roles, executors (humans and agents uniformly) with capacity, one plan-level deadline. It is a description of the world — nothing computed (assignment, schedule, critical path, renders) ever enters the file. The authoritative format reference is `specs/plan-format.md` in the planning-dsl repository; the canonical example at the top of that spec is the style to match.
+The artifact is `plan.yaml`: tasks as a dependency DAG with roles, executors (humans and agents uniformly) with capacity, the working-day calendar, and the two optional plan-level dates. It is a description of the world — nothing computed (assignment, schedule, critical path, renders) ever enters the file. The authoritative format reference is `specs/plan-format.md` in the planning-dsl repository; the canonical example at the top of that spec is the style to match.
 
 If a plan already exists, read it and validate it before asking anything: the errors and warnings tell you what the next conversation should fix.
 
@@ -13,16 +13,16 @@ If a plan already exists, read it and validate it before asking anything: the er
 
 Work through the stages in order; skip a stage only when the plan already answers it. Keep it light: propose, then confirm — few questions at a time, each with a recommended answer, answerable by number. Never interrogate; a proposal the person corrects is faster than a question they must answer from nothing.
 
-1. **Frame.** What is being planned, and by when? Record `unit: person-hours` and the single `deadline:`. Both are required plan-level fields — do not emit a file until both are known; a placeholder deadline is a lie the scheduler will treat as real.
+1. **Frame.** What is being planned, and by when? Record `unit: person-hours`. Ask for `start:` (when execution begins) and `deadline:` — both optional: a date the person has not committed to is invented data, worse than none, so leave a field out rather than guess it. Know the consequences, not more: the scheduler refuses a plan without `start`, and omits slippage without `deadline`.
 2. **Roles.** What kinds of work does this team do? Propose a short vocabulary (three to six roles) with one-line descriptions, and confirm the spellings — every task and executor will reuse these exact tokens. The descriptions are for future sessions and editors; write them plainly.
 3. **Decompose.** Goals into tasks. Propose the task list and its `depends-on` edges, then grill lightly for the missing ones: what must exist before X can start? What can run in parallel with Y? A task that needs two roles is two tasks.
-4. **Estimate.** One person-hours figure per task. If the person hesitates or offers a range, take the middle and say you did. Leaving tasks unestimated is fine — name which ones, because scheduling stays locked until every leaf has a number.
-5. **Executors.** Who (or what) does the work? Humans: roles, plus `availability` when they are not full-time (a scalar, or periods for vacations). Agents: roles, plus `concurrency` slots. Tracker `ids` only if they already exist in the tracker — never invent ids.
+4. **Estimate.** One person-hours figure per task. If the person hesitates or offers a range, take the middle and say you did. Leaving tasks unestimated is fine — name which ones, because scheduling stays locked until every not-done task has a number.
+5. **Calendar and executors.** Which days are working days? Absent `calendar:` means Mon–Fri, no holidays — if the team's week differs, or there are holidays, record `workdays`/`holidays`/`extra-workdays` as authored dates; expanding a jurisdiction's holidays into dates is this skill's job, never a `calendar: ru` string. Then who (or what) does the work? Humans: roles, plus `availability` when they are not full-time (a scalar, or sparse periods — a vacation is one `fraction: 0.0` period; days outside periods are full). Agents: roles, `concurrency` slots, and `calendar: all` — they work every day. Tracker `ids` only if they already exist in the tracker — never invent ids.
 6. **Emit and validate.** Write `plan.yaml` in the spec's style, validate it, fix every error, and surface the warnings: a role no executor fills is usually a vocabulary miss, not a staffing fact.
 
 ## Hard rules
 
-- Authored fields only: `unit`, `deadline`, `roles`; tasks (`status`, `role`, `depends-on`, `estimate`, `blocked-reason`); executors (`ids`, `roles`, `role-weights`, `availability`, `concurrency`). Never write `assignee`, per-task dates, schedule, start/end, critical path, maturity — or `priority`, which does not exist in v1.
+- Authored fields only: `unit`, `start`, `deadline`, `calendar`, `roles`; tasks (`status`, `role`, `depends-on`, `estimate`, `blocked-reason`); executors (`ids`, `roles`, `role-weights`, `availability`, `concurrency`, `calendar`). Never write `assignee`, per-task dates, schedule, per-task start/end, critical path, maturity — or `priority`, which does not exist in v1.
 - `status` and `blocked-reason` belong to tracker sync. One exception: when creating a plan for work already underway, seed `done` or `blocked` for what the interview establishes happened before the plan existed — then stop touching status.
 - A `role:` token must match the declared vocabulary exactly — `Dev` is not `dev`, and the validator will say so.
 - Estimates are single numbers in the plan unit. Ranges are a v2 (PERT) feature and stay out of the file.

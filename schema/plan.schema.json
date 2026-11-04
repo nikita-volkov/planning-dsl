@@ -13,7 +13,40 @@
           "type": "array"
         }
       ],
-      "description": "A calendar fraction: a scalar covers the whole project, a period list\ncovers named stretches (part-time, vacations)."
+      "description": "A calendar fraction: a scalar covers every working day, a period list\nnames the stretches that differ — sparse overrides, full days elsewhere."
+    },
+    "Calendar": {
+      "additionalProperties": false,
+      "description": "Which days are working days: authored, never a jurisdiction string — a\nplain read of the plan shows the whole calendar.",
+      "properties": {
+        "extra-workdays": {
+          "description": "Working dates the weekday rule would mark off (a working Saturday).",
+          "items": {
+            "format": "date",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "holidays": {
+          "description": "Non-working dates the weekday rule would mark working (holidays).",
+          "items": {
+            "format": "date",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "workdays": {
+          "description": "The working weekdays; required — a calendar naming none is not one.",
+          "items": {
+            "$ref": "#/$defs/Weekday"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "workdays"
+      ],
+      "type": "object"
     },
     "Executor": {
       "additionalProperties": false,
@@ -28,6 +61,17 @@
               "type": "null"
             }
           ]
+        },
+        "calendar": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExecutorCalendar"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Replaces the plan calendar wholesale: `all` or a full calendar object.\nInheritance is the default; there is no merge."
         },
         "concurrency": {
           "description": "Parallel slots; default 1.",
@@ -66,9 +110,20 @@
       },
       "type": "object"
     },
+    "ExecutorCalendar": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/Calendar"
+        }
+      ],
+      "description": "An executor-level calendar: the string `all`, or a full calendar object.\nThe untagged shape keeps the YAML honest (`calendar: all` vs\n`calendar: { … }`); a string other than `all` is a validator error, so\nthe message can name the executor."
+    },
     "Period": {
       "additionalProperties": false,
-      "description": "One availability stretch. `until` absent means open-ended.",
+      "description": "One availability stretch: a fraction for a date range. `until` absent\nmeans open-ended; `until` is inclusive.",
       "properties": {
         "fraction": {
           "format": "double",
@@ -145,16 +200,43 @@
         "role"
       ],
       "type": "object"
+    },
+    "Weekday": {
+      "description": "A weekday, in the `calendar` vocabulary: `mon` … `sun`.",
+      "enum": [
+        "mon",
+        "tue",
+        "wed",
+        "thu",
+        "fri",
+        "sat",
+        "sun"
+      ],
+      "type": "string"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "The plan: the only human-authored file. Nothing derived is ever stored here.",
   "properties": {
+    "calendar": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Calendar"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Working days for the whole plan; absent → Monday–Friday, no holidays."
+    },
     "deadline": {
-      "description": "Whole-project deadline — the only date a human writes.",
+      "description": "Whole-project deadline, optional: an uncommitted deadline is invented\ndata, worse than none.",
       "format": "date",
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "executors": {
       "additionalProperties": {
@@ -172,6 +254,14 @@
       "description": "Declared role vocabulary; descriptions are optional and feed the authoring agent.",
       "type": "object"
     },
+    "start": {
+      "description": "When execution begins. Optional here — young plans need not know —\nbut the scheduler refuses a plan without it.",
+      "format": "date",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "tasks": {
       "additionalProperties": {
         "$ref": "#/$defs/Task"
@@ -185,7 +275,6 @@
   },
   "required": [
     "unit",
-    "deadline",
     "roles",
     "tasks",
     "executors"

@@ -13,15 +13,16 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::model::Plan;
 
-/// The dependency edges, canonicalized: `(task, dependency)` pairs — a task
-/// on the left, what it depends on on the right — sorted, deduplicated, and
-/// stripped of dependencies that name no task.
+/// The dependency edges, canonicalized: `(dependency, dependent)` pairs —
+/// what must come first on the left, what waits for it on the right —
+/// sorted, deduplicated, and stripped of dependencies that name no task.
+/// Arrows follow execution order, the community convention.
 pub fn edges(plan: &Plan) -> BTreeSet<(&str, &str)> {
     let mut edges = BTreeSet::new();
     for (name, task) in &plan.tasks {
         for dep in &task.depends_on {
             if plan.tasks.contains_key(dep) {
-                edges.insert((name.as_str(), dep.as_str()));
+                edges.insert((dep.as_str(), name.as_str()));
             }
         }
     }
@@ -178,14 +179,14 @@ pub fn html(plan: &Plan) -> String {
     );
     svg.push_str("<g id=\"view\">\n");
 
-    // Edges first, so nodes paint over them; an edge leaves the dependent's
-    // left edge and enters the dependency's right edge, arrowhead at the
-    // dependency.
+    // Edges first, so nodes paint over them; an edge leaves the dependency's
+    // right edge and enters the dependent's left edge, arrowhead at the
+    // dependent — arrows follow execution order, left to right.
     for &(from, to) in &edges {
         let (fx, fy) = pos[from];
         let (tx, ty) = pos[to];
-        let (sx, sy) = (fx, fy + NODE_H / 2);
-        let (ex, ey) = (tx + width(to), ty + NODE_H / 2);
+        let (sx, sy) = (fx + width(from), fy + NODE_H / 2);
+        let (ex, ey) = (tx, ty + NODE_H / 2);
         let mx = (sx + ex) / 2;
         svg.push_str(&format!(
             "<path class=\"edge\" data-from=\"{f}\" data-to=\"{t}\" marker-end=\"url(#arrow)\" \

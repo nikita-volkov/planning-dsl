@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::model::{Availability, Plan, Status};
+use crate::model::{Availability, Calendar, ExecutorCalendar, Plan, Status, Weekday};
 
 /// The result of validating a plan: every error, not just the first.
 #[derive(Debug, Default)]
@@ -24,6 +24,8 @@ pub fn validate(plan: &Plan) -> Report {
     let mut r = Report::default();
 
     check_unit(plan, &mut r);
+    check_dates(plan, &mut r);
+    check_calendars(plan, &mut r);
     check_role_vocabulary(plan, &mut r);
     check_tasks(plan, &mut r);
     check_executors(plan, &mut r);
@@ -39,6 +41,71 @@ fn check_unit(plan: &Plan, r: &mut Report) {
             "unit: only \"person-hours\" is supported (found \"{}\")",
             plan.unit
         ));
+    }
+}
+
+fn check_dates(plan: &Plan, r: &mut Report) {
+    if let (Some(start), Some(deadline)) = (plan.start, plan.deadline)
+        && start > deadline
+    {
+        r.errors.push(format!(
+            "start ({start}) is after the deadline ({deadline})"
+        ));
+    }
+}
+
+fn check_calendars(plan: &Plan, r: &mut Report) {
+    if let Some(calendar) = &plan.calendar {
+        check_calendar("calendar", calendar, r);
+    }
+    for (name, executor) in &plan.executors {
+        match &executor.calendar {
+            Some(ExecutorCalendar::All(s)) if s != "all" => {
+                r.errors.push(format!(
+                    "executor `{name}`: calendar must be `all` or a calendar object (found \"{s}\")"
+                ));
+            }
+            Some(ExecutorCalendar::Of(calendar)) => {
+                check_calendar(&format!("executor `{name}` calendar"), calendar, r);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn check_calendar(subject: &str, calendar: &Calendar, r: &mut Report) {
+    if calendar.workdays.is_empty() {
+        r.errors
+            .push(format!("{subject}: workdays must name at least one day"));
+    }
+    let mut seen = BTreeSet::new();
+    for day in &calendar.workdays {
+        if !seen.insert(*day) {
+            r.errors.push(format!(
+                "{subject}: workdays repeat {}",
+                weekday_name(*day)
+            ));
+        }
+    }
+    let extra: BTreeSet<_> = calendar.extra_workdays.iter().copied().collect();
+    for date in &calendar.holidays {
+        if extra.contains(date) {
+            r.errors.push(format!(
+                "{subject}: {date} is both a holiday and an extra-workday"
+            ));
+        }
+    }
+}
+
+fn weekday_name(day: Weekday) -> &'static str {
+    match day {
+        Weekday::Mon => "mon",
+        Weekday::Tue => "tue",
+        Weekday::Wed => "wed",
+        Weekday::Thu => "thu",
+        Weekday::Fri => "fri",
+        Weekday::Sat => "sat",
+        Weekday::Sun => "sun",
     }
 }
 
@@ -139,9 +206,9 @@ fn check_executors(plan: &Plan, r: &mut Report) {
 }
 
 fn check_fraction(name: &str, fraction: f64, r: &mut Report) {
-    if fraction <= 0.0 || fraction > 1.0 {
+    if !(0.0..=1.0).contains(&fraction) {
         r.errors.push(format!(
-            "executor `{name}`: availability fraction must be in (0, 1] (found {fraction})"
+            "executor `{name}`: availability fraction must be in [0, 1] (found {fraction})"
         ));
     }
 }
