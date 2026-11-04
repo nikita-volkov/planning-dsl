@@ -72,7 +72,7 @@ executors:
 
 ## Layers
 
-- **Validator** — checks the declared role vocabulary, the DAG, the schema. Typo-class bugs die at commit time.
+- **Validator** — checks the declared role vocabulary, the DAG, the schema, and the estimate ceiling: a not-done task estimated over a working month (160 person-hours) is refused — unestimable, not immature ([a-task-estimated-over-a-working-month-is-refused](../decisions/a-task-estimated-over-a-working-month-is-refused.md)). Typo-class bugs die at commit time.
 - **Scheduler** — deterministic layer over the file: consumes estimates, the calendar, availability periods, concurrency slots and the plan's dates; produces per-task start/end dates and the critical path ([scheduler](scheduler.md)). TaskJuggler's semantics are the reference model ([taskjuggler-solves-deterministic-scheduling-and-has-been-dormant-since-2020](../facts/taskjuggler-solves-deterministic-scheduling-and-has-been-dormant-since-2020.md)).
 - **Renderers** — mermaid graph, interactive HTML graph, Gantt chart.
 - **Tracker sync** — Jira/Linear exports out, status back, asymmetric authority.

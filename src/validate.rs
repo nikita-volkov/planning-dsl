@@ -7,6 +7,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::model::{Availability, Calendar, ExecutorCalendar, Plan, Status, Weekday};
 
+/// The estimate ceiling: one working month at the capacity model's own
+/// constant, 20 working days × 8 h. Over it the task is not estimable and
+/// the plan is refused (a-task-estimated-over-a-working-month-is-refused).
+const MONTHLY_ESTIMATE_CEILING: f64 = 160.0;
+
 /// The result of validating a plan: every error, not just the first.
 #[derive(Debug, Default)]
 pub struct Report {
@@ -173,12 +178,23 @@ fn check_tasks(plan: &Plan, r: &mut Report) {
                 "task `{name}`: blocked-reason is only allowed with status: blocked (status is todo)"
             ));
         }
-        if let Some(estimate) = task.estimate
-            && (!estimate.is_finite() || estimate <= 0.0)
-        {
-            r.errors.push(format!(
-                "task `{name}`: estimate must be a finite number > 0 (found {estimate})"
-            ));
+        if let Some(estimate) = task.estimate {
+            if !estimate.is_finite() || estimate <= 0.0 {
+                r.errors.push(format!(
+                    "task `{name}`: estimate must be a finite number > 0 (found {estimate})"
+                ));
+            }
+            // A working month (160 person-hours = 20 working days at 8 h) is
+            // the ceiling: nothing plans a task that size, it just divides.
+            // Done tasks are exempt — their estimates are records, not
+            // plan inputs (a-task-estimated-over-a-working-month-is-refused).
+            if task.status != Some(Status::Done) && estimate > MONTHLY_ESTIMATE_CEILING {
+                r.errors.push(format!(
+                    "task `{name}`: estimate {estimate} is over a working month \
+                     (160 person-hours at 8 h/day); a task this size is not \
+                     estimable — split it"
+                ));
+            }
         }
     }
     if plan.tasks.is_empty() {

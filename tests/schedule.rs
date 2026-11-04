@@ -458,6 +458,12 @@ fn the_repo_plan_schedules_its_own_remaining_work() {
     let plan = load(yaml).expect("the repo plan parses");
     let out = planning_dsl::schedule::to_yaml(&schedule(&plan).expect("schedules"));
     assert!(out.contains("plan-end: 2026-11-03"), "{out}");
-    assert!(out.contains("  render-gantt:\n    executor: dev-agent"), "{out}");
-    assert!(out.contains("    end: 2026-11-03\n    active-days: 1"), "{out}");
+    assert!(
+        out.contains("  render-gantt:\n    executor: dev-agent"),
+        "{out}"
+    );
+    assert!(
+        out.contains("    end: 2026-11-03\n    active-days: 1"),
+        "{out}"
+    );
 }

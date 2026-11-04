@@ -134,6 +134,42 @@ executors:
 }
 
 #[test]
+fn an_estimate_over_a_working_month_is_refused() {
+    let yaml = "
+unit: person-hours
+roles:
+  dev: implements
+tasks:
+  phase: { role: dev, estimate: 161 }
+  month: { role: dev, estimate: 160 }
+  history: { role: dev, estimate: 300, status: done }
+executors:
+  anton: { roles: [dev] }
+";
+    let report = check(yaml).expect("parses");
+    assert!(
+        report
+            .errors
+            .iter()
+            .any(|e| e.contains("`phase`") && e.contains("working month")),
+        "{:?}",
+        report.errors
+    );
+    // The ceiling itself is fine, and a done task's record is history,
+    // not a plan input — neither is refused.
+    assert!(
+        !report.errors.iter().any(|e| e.contains("`month`")),
+        "{:?}",
+        report.errors
+    );
+    assert!(
+        !report.errors.iter().any(|e| e.contains("`history`")),
+        "{:?}",
+        report.errors
+    );
+}
+
+#[test]
 fn a_misspelled_field_dies_at_parse() {
     let err = check(fixture!("bad-field-typo.yaml")).expect_err("must not parse");
     assert!(err.contains("depend-on"), "{err}");
