@@ -81,10 +81,8 @@ fn check_calendar(subject: &str, calendar: &Calendar, r: &mut Report) {
     let mut seen = BTreeSet::new();
     for day in &calendar.workdays {
         if !seen.insert(*day) {
-            r.errors.push(format!(
-                "{subject}: workdays repeat {}",
-                weekday_name(*day)
-            ));
+            r.errors
+                .push(format!("{subject}: workdays repeat {}", weekday_name(*day)));
         }
     }
     let extra: BTreeSet<_> = calendar.extra_workdays.iter().copied().collect();
@@ -176,10 +174,10 @@ fn check_tasks(plan: &Plan, r: &mut Report) {
             ));
         }
         if let Some(estimate) = task.estimate
-            && estimate <= 0.0
+            && (!estimate.is_finite() || estimate <= 0.0)
         {
             r.errors.push(format!(
-                "task `{name}`: estimate must be > 0 (found {estimate})"
+                "task `{name}`: estimate must be a finite number > 0 (found {estimate})"
             ));
         }
     }

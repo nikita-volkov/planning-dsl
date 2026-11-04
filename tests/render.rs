@@ -19,9 +19,9 @@ fn the_canonical_example_renders_the_expected_mermaid() {
         render::mermaid(&plan),
         "flowchart TD\n\
          \x20   design-architecture[\"design-architecture\"]\n\
+         \x20   plan-out-the-tasks[\"plan-out-the-tasks\"]\n\
          \x20   implement-services[\"implement-services\"]\n\
          \x20   implement-tests[\"implement-tests\"]\n\
-         \x20   plan-out-the-tasks[\"plan-out-the-tasks\"]\n\
          \x20   design-architecture --> plan-out-the-tasks\n\
          \x20   plan-out-the-tasks --> implement-services\n\
          \x20   plan-out-the-tasks --> implement-tests\n"
@@ -44,7 +44,11 @@ fn mermaid_edges_point_from_a_dependency_to_its_dependent() {
 }
 
 #[test]
-fn the_same_plan_in_different_authoring_order_renders_byte_identically() {
+fn authoring_order_is_meaningful_so_renders_follow_declaration_order() {
+    // Declaration order is load-bearing (the scheduler's tie-break), so two
+    // files that declare the same tasks in different orders are different
+    // plans: their renders may order nodes differently but must carry the
+    // same nodes and edges, and each is byte-identical across runs.
     let a = "
 unit: person-hours
 deadline: 2026-12-18
@@ -71,8 +75,48 @@ executors:
 ";
     let a = load(a).expect("parses");
     let b = load(b).expect("parses");
-    assert_eq!(render::mermaid(&a), render::mermaid(&b));
-    assert_eq!(render::html(&a), render::html(&b));
+    // Mermaid: same lines up to order. HTML: geometry differs with the row
+    // order, so compare the carried data instead — the node ids and the
+    // edge pairs.
+    let sorted = |s: &str| -> Vec<String> {
+        let mut lines: Vec<String> = s.lines().map(str::to_string).collect();
+        lines.sort();
+        lines
+    };
+    assert_eq!(sorted(&render::mermaid(&a)), sorted(&render::mermaid(&b)));
+    let html_data = |html: &str| -> (Vec<String>, Vec<String>) {
+        let mut ids: Vec<String> = html
+            .lines()
+            .filter(|l| l.contains("data-id="))
+            .filter_map(|l| l.split("data-id=\"").nth(1))
+            .filter_map(|rest| rest.split('"').next())
+            .map(str::to_string)
+            .collect();
+        ids.sort();
+        let mut edges: Vec<String> = html
+            .lines()
+            .filter(|l| l.contains("class=\"edge\""))
+            .filter_map(|l| {
+                let from = l.split("data-from=\"").nth(1)?.split('"').next()?;
+                let to = l.split("data-to=\"").nth(1)?.split('"').next()?;
+                Some(format!("{from}->{to}"))
+            })
+            .collect();
+        edges.sort();
+        (ids, edges)
+    };
+    assert_eq!(html_data(&render::html(&a)), html_data(&render::html(&b)));
+    // Determinism per plan, run over run.
+    assert_eq!(render::mermaid(&a), render::mermaid(&a));
+    assert_eq!(render::html(&b), render::html(&b));
+    // The node order follows the declaration order of each file.
+    let a_mermaid = render::mermaid(&a);
+    let a_nodes: Vec<&str> = a_mermaid
+        .lines()
+        .filter(|l| l.contains("[\""))
+        .map(|l| l.split('"').nth(1).expect("quoted"))
+        .collect();
+    assert_eq!(a_nodes, ["ship", "test", "build"]);
 }
 
 #[test]
@@ -111,7 +155,7 @@ executors:
 ";
     let plan = load(yaml).expect("parses");
     let mmd = render::mermaid(&plan);
-    assert!(mmd.contains("t1[\"fix&amp;ship\"]"), "{mmd}");
+    assert!(mmd.contains("t0[\"fix&amp;ship\"]"), "{mmd}");
     assert!(mmd.contains("a&lt;b"), "{mmd}");
     let html = render::html(&plan);
     assert!(html.contains("fix&amp;ship"), "{html}");

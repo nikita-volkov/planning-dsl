@@ -5,10 +5,75 @@
 //! the JSON Schema is generated from these types, so the two cannot drift.
 
 use std::collections::BTreeMap;
+use std::ops::{Deref, DerefMut};
 
 use chrono::NaiveDate;
+use indexmap::IndexMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+/// A map that keeps document order: YAML mappings deserialize in file order
+/// and serialize back in the same order. Declaration order is load-bearing —
+/// it is the tie-break under capacity contention and the order of the
+/// schedule artifact — so tasks and executors cannot live in a `BTreeMap`,
+/// which would sort it away (`specs/scheduler.md`, the static pass).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct DeclarationMap<V>(IndexMap<String, V>);
+
+/// In the schema it is just an object with typed properties — the ordered
+/// map is an implementation carrier for document order, not a shape plan
+/// authors could ever see. `inline_schema` keeps the wrapper itself from
+/// becoming a named `$defs` entry, exactly like schemars' own map impls.
+impl<V: JsonSchema> JsonSchema for DeclarationMap<V> {
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Owned(format!("map_of_{}", V::schema_name()))
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "type": "object",
+            "additionalProperties": generator.subschema_for::<V>(),
+        })
+    }
+}
+
+impl<V> DeclarationMap<V> {
+    pub fn new() -> Self {
+        DeclarationMap(IndexMap::new())
+    }
+}
+
+impl<V> Default for DeclarationMap<V> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<V> Deref for DeclarationMap<V> {
+    type Target = IndexMap<String, V>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<V> DerefMut for DeclarationMap<V> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'a, V> IntoIterator for &'a DeclarationMap<V> {
+    type Item = (&'a String, &'a V);
+    type IntoIter = indexmap::map::Iter<'a, String, V>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
 
 /// The plan: the only human-authored file. Nothing derived is ever stored here.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -29,8 +94,8 @@ pub struct Plan {
     pub calendar: Option<Calendar>,
     /// Declared role vocabulary; descriptions are optional and feed the authoring agent.
     pub roles: BTreeMap<String, Option<String>>,
-    pub tasks: BTreeMap<String, Task>,
-    pub executors: BTreeMap<String, Executor>,
+    pub tasks: DeclarationMap<Task>,
+    pub executors: DeclarationMap<Executor>,
 }
 
 /// Which days are working days: authored, never a jurisdiction string — a

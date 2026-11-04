@@ -1,9 +1,9 @@
 //! Renderers: derived artifacts over the typed plan model — a mermaid
 //! flowchart of the task dependency DAG and a self-contained interactive HTML
 //! graph. Both are pure functions of the plan: same plan in, byte-identical
-//! file out. The determinism is carried by the `BTreeMap` ordering of the
-//! model and by canonicalizing the edge set, never by hashing or sorting at
-//! the end.
+//! file out. The determinism is carried by the model's declaration order
+//! (the `DeclarationMap`) and by canonicalizing the edge set, never by
+//! hashing or sorting at the end.
 //!
 //! Renderers assume a valid plan (the CLI gates on `validate` first);
 //! defensively, a `depends-on` naming no task is skipped, never rendered as
@@ -132,7 +132,7 @@ pub fn html(plan: &Plan) -> String {
 
     // Geometry, in integers, so the bytes cannot depend on float formatting:
     // a column per layer (dependencies on the left, dependents on the right),
-    // rows ordered by task name, columns centered vertically.
+    // rows in declaration order, columns centered vertically.
     const ROW_H: usize = 44;
     const NODE_H: usize = 28;
     const CHAR_W: usize = 8; // 12px monospace advances ~7.2px; slack kept

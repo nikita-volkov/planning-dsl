@@ -5,6 +5,10 @@ const USAGE: &str = "usage: planning-dsl <command>
 
 commands:
   validate <plan.yaml>   check a plan; every error, not just the first
+  schedule <plan.yaml>   compute the schedule; print the artifact
+      --out <file>       write it to a file instead of stdout
+                         (never into plan.yaml; no date flags — what-ifs
+                         are file edits under git)
   emit-schema            print the JSON Schema for plan.yaml
   render <plan.yaml>     write the derived renders beside the plan
       --mmd <file>       the mermaid flowchart (default: <stem>.mmd)
@@ -15,6 +19,7 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(String::as_str) {
         Some("validate") => validate(&args[2..]),
+        Some("schedule") => schedule(&args[2..]),
         Some("render") => render(&args[2..]),
         Some("emit-schema") => {
             println!(
@@ -68,6 +73,82 @@ fn validate(args: &[String]) -> ExitCode {
             }
         }
     }
+}
+
+fn schedule(args: &[String]) -> ExitCode {
+    let mut plan_path = None;
+    let mut out_path = None;
+    let mut flags = args.iter();
+    while let Some(arg) = flags.next() {
+        match arg.as_str() {
+            "--out" => {
+                let Some(target) = flags.next() else {
+                    eprintln!("error: --out needs a file\n{USAGE}");
+                    return ExitCode::from(2);
+                };
+                out_path = Some(target);
+            }
+            s if s.starts_with('-') => {
+                eprintln!("error: unknown flag {s}\n{USAGE}");
+                return ExitCode::from(2);
+            }
+            _ => {
+                if plan_path.is_some() {
+                    eprintln!("error: schedule takes one plan file\n{USAGE}");
+                    return ExitCode::from(2);
+                }
+                plan_path = Some(arg);
+            }
+        }
+    }
+    let Some(path) = plan_path else {
+        eprintln!("error: schedule needs a plan file\n{USAGE}");
+        return ExitCode::from(2);
+    };
+    let yaml = match std::fs::read_to_string(path) {
+        Ok(yaml) => yaml,
+        Err(e) => {
+            eprintln!("error: cannot read {path}: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let plan = match planning_dsl::load(&yaml) {
+        Ok(plan) => plan,
+        Err(parse_error) => {
+            eprintln!("{path}: {parse_error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let report = planning_dsl::validate(&plan);
+    for warning in &report.warnings {
+        eprintln!("warning: {warning}");
+    }
+    if !report.is_ok() {
+        for error in &report.errors {
+            eprintln!("error: {error}");
+        }
+        eprintln!("{path}: not scheduled — fix the errors above first");
+        return ExitCode::FAILURE;
+    }
+    let artifact = match planning_dsl::schedule(&plan) {
+        Ok(artifact) => artifact,
+        Err(refusal) => {
+            eprintln!("{refusal}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let out = planning_dsl::schedule::to_yaml(&artifact);
+    match out_path {
+        Some(file) => {
+            if let Err(e) = std::fs::write(file, &out) {
+                eprintln!("error: cannot write {file}: {e}");
+                return ExitCode::from(2);
+            }
+            println!("{path}: wrote {file}");
+        }
+        None => print!("{out}"),
+    }
+    ExitCode::SUCCESS
 }
 
 fn render(args: &[String]) -> ExitCode {

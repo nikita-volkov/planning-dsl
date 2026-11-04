@@ -112,6 +112,28 @@ fn a_negative_estimate_is_rejected() {
 }
 
 #[test]
+fn a_non_finite_estimate_is_rejected() {
+    let yaml = "
+unit: person-hours
+roles:
+  dev: implements
+tasks:
+  ship: { role: dev, estimate: .inf }
+executors:
+  anton: { roles: [dev] }
+";
+    let report = check(yaml).expect("parses");
+    assert!(
+        report
+            .errors
+            .iter()
+            .any(|e| e.contains("estimate") && e.contains("finite")),
+        "{:?}",
+        report.errors
+    );
+}
+
+#[test]
 fn a_misspelled_field_dies_at_parse() {
     let err = check(fixture!("bad-field-typo.yaml")).expect_err("must not parse");
     assert!(err.contains("depend-on"), "{err}");
@@ -202,14 +224,18 @@ executors:
 ";
     let report = check(yaml).expect("parses");
     assert!(
-        report.errors.iter().any(|e| e.contains("workdays repeat mon")),
+        report
+            .errors
+            .iter()
+            .any(|e| e.contains("workdays repeat mon")),
         "{:?}",
         report.errors
     );
     assert!(
-        report.errors.iter().any(|e| e.contains(
-            "2026-11-04 is both a holiday and an extra-workday"
-        )),
+        report
+            .errors
+            .iter()
+            .any(|e| e.contains("2026-11-04 is both a holiday and an extra-workday")),
         "{:?}",
         report.errors
     );
