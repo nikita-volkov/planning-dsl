@@ -372,11 +372,12 @@ pub enum Direction {
 
 /// The interactive HTML graph: one self-contained file built on the vendored
 /// standard library (`decisions/the-html-graph-is-built-on-a-vendored-standard-library`):
-/// cytoscape renders, and the ELK layered layout — reached through the
-/// cytoscape-elk wrapper — places the nodes, with nothing hand-rolled beyond
-/// configuration and a small init glue. Rust computes no geometry: it emits
-/// the three pinned dist bundles verbatim (`assets/`, license headers
-/// intact), a JSON data block, and the glue.
+/// cytoscape renders, and the ELK layered layout — run by the glue directly —
+/// places the nodes and routes the edges
+/// (`decisions/the-html-graph-routes-edges-along-elks-bend-points.md`), with
+/// nothing hand-rolled beyond configuration and a small init glue. Rust
+/// computes no geometry: it emits the pinned dist bundles verbatim (`assets/`,
+/// license headers intact), a JSON data block, and the glue.
 /// The data block carries one record per task — the name, the description,
 /// the declared status, the role, the estimate, the done and crit flags,
 /// the direct dependents in declaration order, and, when the schedule
@@ -386,7 +387,8 @@ pub enum Direction {
 /// glue sizes each node's box to its two label lines (`role · estimate`
 /// under the name) by measuring text the way cytoscape itself measures a
 /// label, and leaves everything else to the libraries: ELK positions and
-/// orders the layers along the direction, cytoscape draws and interacts —
+/// orders the layers along the direction and routes every edge, cytoscape
+/// draws and interacts —
 /// pan, wheel zoom, fit on load, hover highlight (1-hop by default, the
 /// transitive downstream on Shift via `successors()`), click-to-pin detail
 /// card, status colours, done muting, class-picked arrowheads, corner
@@ -541,12 +543,11 @@ pub fn html(plan: &Plan, direction: Direction, schedule: Option<&Schedule>) -> S
 }
 
 /// The head of the HTML graph page: the shell (background, legend, detail
-/// card, the cytoscape container), the attribution note, and the three
-/// vendored bundles embedded verbatim — cytoscape first (it defines the
-/// global the wrapper registers against), then the ELK engine (it defines
-/// the `ELK` global the wrapper's UMD factory reads), then the wrapper.
-/// The bundles are pinned dist builds committed under `assets/`; nothing
-/// here fetches from the network.
+/// card, the cytoscape container), the attribution note, and the two
+/// vendored bundles embedded verbatim — cytoscape (the viewer) first, then
+/// the ELK engine (the `ELK` global the init glue lays out with). The
+/// bundles are pinned dist builds committed under `assets/`; nothing here
+/// fetches from the network.
 const HTML_HEAD: &str = concat!(
     r#"<!doctype html>
 <html>
@@ -568,28 +569,28 @@ body { font-family: ui-monospace, Menlo, Consolas, monospace; overflow: hidden; 
 <div id="card"></div>
 <div id="legend"></div>
 <div id="cy"></div>
-<!-- Rendered by planning-dsl. The graph draws with vendored cytoscape 3.34.4 (MIT),
-elkjs 0.12.1 (EPL-2.0) and cytoscape-elk 2.3.0 (MIT), embedded verbatim below; the
-bundles are pinned dist builds committed under assets/ with their license headers
-intact. This file is self-contained and opens offline. -->
+<!-- Rendered by planning-dsl. The graph draws with vendored cytoscape 3.34.4 (MIT)
+and elkjs 0.12.1 (EPL-2.0), embedded verbatim below; the bundles are pinned dist
+builds committed under assets/ with their license headers intact. This file is
+self-contained and opens offline. -->
 <script>
 "#,
     include_str!("../assets/cytoscape-3.34.4.min.js"),
     "\n</script>\n<script>\n",
     include_str!("../assets/elk-0.12.1.bundled.js"),
-    "\n</script>\n<script>\n",
-    include_str!("../assets/cytoscape-elk-2.3.0.js"),
     "\n</script>\n"
 );
 
 /// The tail of the HTML graph page: the JSON data block rides in ahead of
 /// this (Rust prints it between head and tail), then the init glue — the
 /// only hand-written JS, and it only configures and reads. The glue builds
-/// the cytoscape elements off the printed data, asks the ELK layered layout
-/// for positions along the printed direction, and wires the interactions:
-/// the hover glance (1-hop), the Shift transitive downstream
-/// (`successors()`), the click-to-pin card, the corner legend, fit on load,
-/// double-click and resize re-fit. Pan and wheel zoom are cytoscape's own.
+/// the cytoscape elements off the printed data, runs the vendored ELK
+/// layered layout along the printed direction, applies its node positions
+/// and maps its edge sections onto cytoscape's `segments` curve style, and
+/// wires the interactions: the hover glance (1-hop), the Shift transitive
+/// downstream (`successors()`), the click-to-pin card, the corner legend,
+/// fit on load, double-click and resize re-fit. Pan and wheel zoom are
+/// cytoscape's own.
 const HTML_TAIL: &str = r#"<script>
 (function () {
   var DATA = JSON.parse(document.getElementById('graph-data').textContent);
@@ -694,21 +695,10 @@ const HTML_TAIL: &str = r#"<script>
     elements: elements,
     // A read-only view: the positions are ELK's, nothing grabs a node.
     autoungrabify: true,
-    layout: {
-      name: 'elk',
-      fit: false, // the glue fits, at stop, with its own padding
-      padding: FIT_PAD,
-      elk: {
-        algorithm: 'layered',
-        'elk.direction': DATA.direction,
-        // Spacing, visibly airy — the hand-rolled renderer was widened
-        // 1.5x at the maintainer's request (H_GAP 60 -> 90, ROW_H 56 ->
-        // 84); ELK gets that air, and a little more layer to layer.
-        'elk.spacing.nodeNode': 90,
-        'elk.layered.spacing.nodeNodeBetweenLayers': 100
-      },
-      stop: function () { fit(); }
-    },
+    // The nodes carry no positions yet — ELK delivers them below; preset
+    // keeps cytoscape from scattering them in the meantime, and the glue
+    // fits once the layout has landed.
+    layout: { name: 'preset', fit: false },
     style: [
       {
         selector: 'node',
@@ -750,7 +740,19 @@ const HTML_TAIL: &str = r#"<script>
           'line-color': '#9aa4b2',
           'target-arrow-shape': 'triangle',
           'target-arrow-color': '#9aa4b2',
-          'curve-style': 'straight'
+          // The edges ride ELK's computed routes: `segments` draws the
+          // polyline through the segment points the glue maps from ELK's
+          // sections below. `node-position` makes those points interpolate
+          // between the node centers (the space the mapping inverts), and
+          // the manual source/target endpoints pin the drawn ends to ELK's
+          // border points instead of a center-ray projection — the
+          // projection misses whenever ELK spreads ports off-center.
+          'curve-style': 'segments',
+          'edge-distances': 'node-position',
+          'segment-weights': 'data(w)',
+          'segment-distances': 'data(d)',
+          'source-endpoint': 'data(send)',
+          'target-endpoint': 'data(tend)'
         }
       },
       { selector: 'edge.crit', style: { 'line-color': '#b91c1c', 'target-arrow-color': '#b91c1c' } },
@@ -777,6 +779,89 @@ const HTML_TAIL: &str = r#"<script>
         }
       }
     ]
+  });
+  var cyNodes = cy.nodes(), cyEdges = cy.edges();
+
+  // The layout: the vendored ELK layered engine, run directly. The
+  // cytoscape-elk wrapper that used to reach it applies node positions only
+  // — its adapter drops the computed edge routes — so the glue feeds ELK
+  // its own JSON graph (the same measured boxes, edges as id/source/target)
+  // and maps the routes back onto cytoscape itself
+  // (decisions/the-html-graph-routes-edges-along-elks-bend-points.md). The
+  // graph is flat — every node a child of the root — so ELK's node boxes
+  // and edge sections all come back in root coordinates.
+  new ELK().layout({
+    id: 'root',
+    layoutOptions: {
+      algorithm: 'layered',
+      'elk.direction': DATA.direction,
+      // Spacing, visibly airy — the hand-rolled renderer was widened
+      // 1.5x at the maintainer's request (H_GAP 60 -> 90, ROW_H 56 ->
+      // 84); ELK gets that air, and a little more layer to layer.
+      'elk.spacing.nodeNode': 90,
+      'elk.layered.spacing.nodeNodeBetweenLayers': 100
+    },
+    children: DATA.tasks.map(function (t) {
+      return { id: t.name, width: boxWidth(t), height: BOX_H };
+    }),
+    edges: DATA.edges.map(function (e, i) {
+      return { id: 'e' + i, sources: [e.from], targets: [e.to] };
+    })
+  }).then(function (graph) {
+    // ELK positions a node by its top-left corner; cytoscape wants the
+    // center. ELK routes each edge in sections — start point, bends, end
+    // point. Cytoscape's `segments` curve style has no absolute-points
+    // property: it computes its points from segment weights and distances,
+    //   segpt = src + w * (tgt - src) + dist * rot90(unit(tgt - src)),
+    // and `route` below is that formula's exact inverse, so each mapped
+    // pair reconstructs its ELK point bit-for-bit.
+    function route(src, tgt, pts) {
+      var dx = tgt.x - src.x, dy = tgt.y - src.y;
+      var l2 = dx * dx + dy * dy;
+      if (l2 === 0) return null;
+      var ux = dx / Math.sqrt(l2), uy = dy / Math.sqrt(l2);
+      var ws = [], ds = [];
+      for (var i = 0; i < pts.length; i++) {
+        var px = pts[i].x - src.x, py = pts[i].y - src.y;
+        ws.push((px * dx + py * dy) / l2);
+        ds.push(py * ux - px * uy);
+      }
+      return { w: ws, d: ds };
+    }
+    var nodesById = {};
+    graph.children.forEach(function (n) { nodesById[n.id] = n; });
+    cy.batch(function () {
+      graph.children.forEach(function (n, i) {
+        cyNodes[i].position({ x: n.x + n.width / 2, y: n.y + n.height / 2 });
+      });
+      graph.edges.forEach(function (e, i) {
+        var s = e.sections && e.sections[0];
+        if (!s) return;
+        var src = nodesById[e.sources[0]], tgt = nodesById[e.targets[0]];
+        var S = { x: src.x + src.width / 2, y: src.y + src.height / 2 };
+        var T = { x: tgt.x + tgt.width / 2, y: tgt.y + tgt.height / 2 };
+        var bends = s.bendPoints || [];
+        // A straight section carries no bends; its midpoint keeps the
+        // segments machinery fed — an empty point list computes NaN ends
+        // and cytoscape refuses to draw the edge at all.
+        var pts = bends.length ? bends : [
+          { x: (s.startPoint.x + s.endPoint.x) / 2, y: (s.startPoint.y + s.endPoint.y) / 2 }
+        ];
+        var mapped = route(S, T, pts);
+        if (!mapped) return;
+        cyEdges[i].data({
+          w: mapped.w,
+          d: mapped.d,
+          // The border anchorings as offsets from the node centers: with
+          // these the drawn line starts and ends exactly on ELK's points,
+          // and the arrowhead lands on the border pointing along ELK's
+          // final approach.
+          send: (s.startPoint.x - S.x) + 'px ' + (s.startPoint.y - S.y) + 'px',
+          tend: (s.endPoint.x - T.x) + 'px ' + (s.endPoint.y - T.y) + 'px'
+        });
+      });
+    });
+    fit(); // the layout has landed; also forces the style's re-evaluation
   });
 
   // The glance and the closure. `hot` is the node whose highlight stands —

@@ -18,10 +18,10 @@ body { font-family: ui-monospace, Menlo, Consolas, monospace; overflow: hidden; 
 <div id="card"></div>
 <div id="legend"></div>
 <div id="cy"></div>
-<!-- Rendered by planning-dsl. The graph draws with vendored cytoscape 3.34.4 (MIT),
-elkjs 0.12.1 (EPL-2.0) and cytoscape-elk 2.3.0 (MIT), embedded verbatim below; the
-bundles are pinned dist builds committed under assets/ with their license headers
-intact. This file is self-contained and opens offline. -->
+<!-- Rendered by planning-dsl. The graph draws with vendored cytoscape 3.34.4 (MIT)
+and elkjs 0.12.1 (EPL-2.0), embedded verbatim below; the bundles are pinned dist
+builds committed under assets/ with their license headers intact. This file is
+self-contained and opens offline. -->
 <script>
 /**
  * Copyright (c) 2016-2026, The Cytoscape Consortium.
@@ -6829,364 +6829,6 @@ module.exports = browser_default;
 });
 
 </script>
-<script>
-(function webpackUniversalModuleDefinition(root, factory) {
-	if(typeof exports === 'object' && typeof module === 'object')
-		module.exports = factory(require("elkjs/lib/elk.bundled.js"));
-	else if(typeof define === 'function' && define.amd)
-		define(["elkjs"], factory);
-	else if(typeof exports === 'object')
-		exports["cytoscapeElk"] = factory(require("elkjs/lib/elk.bundled.js"));
-	else
-		root["cytoscapeElk"] = factory(root["ELK"]);
-})(this, function(__WEBPACK_EXTERNAL_MODULE__632__) {
-return /******/ (function() { // webpackBootstrap
-/******/ 	"use strict";
-/******/ 	var __webpack_modules__ = ({
-
-/***/ 632:
-/***/ (function(module) {
-
-module.exports = __WEBPACK_EXTERNAL_MODULE__632__;
-
-/***/ })
-
-/******/ 	});
-/************************************************************************/
-/******/ 	// The module cache
-/******/ 	var __webpack_module_cache__ = {};
-/******/ 	
-/******/ 	// The require function
-/******/ 	function __webpack_require__(moduleId) {
-/******/ 		// Check if module is in cache
-/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
-/******/ 		if (cachedModule !== undefined) {
-/******/ 			return cachedModule.exports;
-/******/ 		}
-/******/ 		// Create a new module (and put it into the cache)
-/******/ 		var module = __webpack_module_cache__[moduleId] = {
-/******/ 			// no module.id needed
-/******/ 			// no module.loaded needed
-/******/ 			exports: {}
-/******/ 		};
-/******/ 	
-/******/ 		// Execute the module function
-/******/ 		__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
-/******/ 	
-/******/ 		// Return the exports of the module
-/******/ 		return module.exports;
-/******/ 	}
-/******/ 	
-/************************************************************************/
-/******/ 	/* webpack/runtime/compat get default export */
-/******/ 	!function() {
-/******/ 		// getDefaultExport function for compatibility with non-harmony modules
-/******/ 		__webpack_require__.n = function(module) {
-/******/ 			var getter = module && module.__esModule ?
-/******/ 				function() { return module['default']; } :
-/******/ 				function() { return module; };
-/******/ 			__webpack_require__.d(getter, { a: getter });
-/******/ 			return getter;
-/******/ 		};
-/******/ 	}();
-/******/ 	
-/******/ 	/* webpack/runtime/define property getters */
-/******/ 	!function() {
-/******/ 		// define getter functions for harmony exports
-/******/ 		__webpack_require__.d = function(exports, definition) {
-/******/ 			for(var key in definition) {
-/******/ 				if(__webpack_require__.o(definition, key) && !__webpack_require__.o(exports, key)) {
-/******/ 					Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
-/******/ 				}
-/******/ 			}
-/******/ 		};
-/******/ 	}();
-/******/ 	
-/******/ 	/* webpack/runtime/hasOwnProperty shorthand */
-/******/ 	!function() {
-/******/ 		__webpack_require__.o = function(obj, prop) { return Object.prototype.hasOwnProperty.call(obj, prop); }
-/******/ 	}();
-/******/ 	
-/************************************************************************/
-var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
-!function() {
-
-// EXPORTS
-__webpack_require__.d(__webpack_exports__, {
-  "default": function() { return /* binding */ src; }
-});
-
-// EXTERNAL MODULE: external {"commonjs":"elkjs/lib/elk.bundled.js","commonjs2":"elkjs/lib/elk.bundled.js","amd":"elkjs","root":"ELK"}
-var elk_bundled_js_amd_elkjs_root_ELK_ = __webpack_require__(632);
-var elk_bundled_js_amd_elkjs_root_ELK_default = /*#__PURE__*/__webpack_require__.n(elk_bundled_js_amd_elkjs_root_ELK_);
-;// CONCATENATED MODULE: ./src/assign.js
-// Simple, internal Object.assign() polyfill for options objects etc.
-function assign_assign(tgt) {
-  for (var _len = arguments.length, srcs = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-    srcs[_key - 1] = arguments[_key];
-  }
-
-  srcs.forEach(function (src) {
-    Object.keys(src).forEach(function (k) {
-      return tgt[k] = src[k];
-    });
-  });
-  return tgt;
-}
-
-/* harmony default export */ var src_assign = (Object.assign != null ? Object.assign.bind(Object) : assign_assign);
-;// CONCATENATED MODULE: ./src/defaults.js
-var defaults = {
-  nodeDimensionsIncludeLabels: false,
-  // Boolean which changes whether label dimensions are included when calculating node dimensions
-  fit: true,
-  // Whether to fit
-  padding: 20,
-  // Padding on fit
-  animate: false,
-  // Whether to transition the node positions
-  animateFilter: function animateFilter() {
-    return true;
-  },
-  // Whether to animate specific nodes when animation is on; non-animated nodes immediately go to their final positions
-  animationDuration: 500,
-  // Duration of animation in ms if enabled
-  animationEasing: undefined,
-  // Easing of animation if enabled
-  transform: function transform(node, pos) {
-    return pos;
-  },
-  // A function that applies a transform to the final node position
-  ready: undefined,
-  // Callback on layoutready
-  stop: undefined,
-  // Callback on layoutstop
-  nodeLayoutOptions: undefined,
-  // Special options for only the nodes
-  elk: {
-    // Options to pass directly to ELK `layoutOptions`. The subsequent identifier has to be used as property key in quotes.
-    // E.g. for 'org.eclipse.elk.direction' use:
-    // 'elk.direction'
-    // Primary/mandatory, the elk algorithm to use
-    // one of 'box', 'disco', 'force', 'layered', 'mrtree', 'radial', 'random', 'stress'
-    // (see https://www.eclipse.org/elk/reference/algorithms.html)
-    algorithm: undefined
-  },
-  priority: function priority() {
-    return null;
-  } // Edges with a non-nil value are skipped when geedy edge cycle breaking is enabled
-
-};
-/* harmony default export */ var src_defaults = (defaults);
-;// CONCATENATED MODULE: ./src/layout.js
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
-
-function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); Object.defineProperty(Constructor, "prototype", { writable: false }); return Constructor; }
-
-
-
-
-var elkOverrides = {};
-
-var getPos = function getPos(ele, options) {
-  var dims = ele.layoutDimensions(options);
-  var parent = ele.parent();
-  var k = ele.scratch('elk');
-  var p = {
-    x: k.x,
-    y: k.y
-  };
-
-  while (parent.nonempty()) {
-    var kp = parent.scratch('elk');
-    p.x += kp.x;
-    p.y += kp.y;
-    parent = parent.parent();
-  } // elk considers a node position to be its top-left corner, while cy is the centre
-
-
-  p.x += dims.w / 2;
-  p.y += dims.h / 2;
-  return p;
-};
-
-var makeNode = function makeNode(node, options) {
-  var k = {
-    _cyEle: node,
-    id: node.id()
-  }; // Apply nodeLayoutOptions per user-specified function
-  // e.g. nodeLayoutOptions => n.scratch('layoutOptions')
-
-  if (options.nodeLayoutOptions) {
-    k.layoutOptions = options.nodeLayoutOptions(node);
-  }
-
-  if (!node.isParent()) {
-    var dims = node.layoutDimensions(options);
-    var p = node.position(); // the elk position is the top-left corner, cy is the centre
-
-    k.x = p.x - dims.w / 2;
-    k.y = p.y - dims.h / 2;
-    k.width = dims.w;
-    k.height = dims.h;
-  }
-
-  node.scratch('elk', k);
-  return k;
-};
-
-var makeEdge = function makeEdge(edge
-/*, options*/
-) {
-  var k = {
-    _cyEle: edge,
-    id: edge.id(),
-    source: edge.data('source'),
-    target: edge.data('target')
-  };
-  edge.scratch('elk', k);
-  return k;
-};
-
-var makeGraph = function makeGraph(nodes, edges, options) {
-  var elkNodes = [];
-  var elkEdges = [];
-  var elkEleLookup = {};
-  var graph = {
-    id: 'root',
-    children: [],
-    edges: []
-  }; // map all nodes
-
-  for (var i = 0; i < nodes.length; i++) {
-    var n = nodes[i];
-    var k = makeNode(n, options);
-    elkNodes.push(k);
-    elkEleLookup[n.id()] = k;
-  } // map all edges
-
-
-  for (var _i = 0; _i < edges.length; _i++) {
-    var e = edges[_i];
-
-    var _k = makeEdge(e, options);
-
-    elkEdges.push(_k);
-    elkEleLookup[e.id()] = _k;
-  } // make hierarchy
-
-
-  for (var _i2 = 0; _i2 < elkNodes.length; _i2++) {
-    var _k2 = elkNodes[_i2];
-    var _n = _k2._cyEle;
-
-    if (!_n.isChild()) {
-      graph.children.push(_k2);
-    } else {
-      var parent = _n.parent();
-
-      var parentK = elkEleLookup[parent.id()];
-      var children = parentK.children = parentK.children || [];
-      children.push(_k2);
-    }
-  }
-
-  for (var _i3 = 0; _i3 < elkEdges.length; _i3++) {
-    var _k3 = elkEdges[_i3]; // put all edges in the top level for now
-    // TODO does this cause issues in certain edgecases?
-
-    /*let e = k._cyEle;
-    let parentSrc = e.source().parent();
-    let parentTgt = e.target().parent();
-    if ( false && parentSrc.nonempty() && parentTgt.nonempty() && parentSrc.same( parentTgt ) ){
-      let kp = elkEleLookup[ parentSrc.id() ];
-       kp.edges = kp.edges || [];
-       kp.edges.push( k );
-    } else {*/
-
-    graph.edges.push(_k3); //}
-  }
-
-  return graph;
-};
-
-var Layout = /*#__PURE__*/function () {
-  function Layout(options) {
-    _classCallCheck(this, Layout);
-
-    var elkOptions = options.elk;
-    var cy = options.cy;
-    this.options = src_assign({}, src_defaults, options);
-    this.options.elk = src_assign({
-      aspectRatio: cy.width() / cy.height()
-    }, src_defaults.elk, elkOptions, elkOverrides);
-  }
-
-  _createClass(Layout, [{
-    key: "run",
-    value: function run() {
-      var layout = this;
-      var options = this.options;
-      var eles = options.eles;
-      var nodes = eles.nodes();
-      var edges = eles.edges();
-      var elk = new (elk_bundled_js_amd_elkjs_root_ELK_default())();
-      var graph = makeGraph(nodes, edges, options);
-      graph['layoutOptions'] = options.elk;
-      elk.layout(graph).then(function () {
-        nodes.filter(function (n) {
-          return !n.isParent();
-        }).layoutPositions(layout, options, function (n) {
-          return getPos(n, options);
-        });
-      });
-      return this;
-    }
-  }, {
-    key: "stop",
-    value: function stop() {
-      return this; // chaining
-    }
-  }, {
-    key: "destroy",
-    value: function destroy() {
-      return this; // chaining
-    }
-  }]);
-
-  return Layout;
-}();
-
-/* harmony default export */ var layout = (Layout);
-;// CONCATENATED MODULE: ./src/index.js
- // registers the extension on a cytoscape lib ref
-
-var register = function register(cytoscape) {
-  if (!cytoscape) {
-    return;
-  } // can't register if cytoscape unspecified
-
-
-  cytoscape('layout', 'elk', layout); // register with cytoscape.js
-};
-
-if (typeof cytoscape !== 'undefined') {
-  // expose to global cytoscape (i.e. window.cytoscape)
-  // eslint-disable-next-line no-undef
-  register(cytoscape);
-}
-
-/* harmony default export */ var src = (register);
-}();
-__webpack_exports__ = __webpack_exports__["default"];
-/******/ 	return __webpack_exports__;
-/******/ })()
-;
-});
-</script>
 <script type="application/json" id="graph-data">{"direction":"RIGHT","edges":[{"from":"вентиляция","to":"малярка-второй-этаж"},{"from":"вентиляция","to":"малярка-первый-этаж"},{"from":"вентиляция","to":"стяжка-первый-этаж"},{"from":"демонтаж","to":"вентиляция"},{"from":"демонтаж","to":"перегородки-второй-этаж"},{"from":"демонтаж","to":"перегородки-первый-этаж"},{"from":"дизайн-проект","to":"подбор-материалов"},{"from":"дизайн-проект","to":"сценарий-освещения"},{"from":"малярка-второй-этаж","to":"полы-чистовые-второй-этаж"},{"crit":true,"from":"малярка-второй-этаж","to":"электрика-чистовая"},{"from":"малярка-первый-этаж","to":"полы-чистовые-первый-этаж"},{"from":"малярка-первый-этаж","to":"электрика-чистовая"},{"from":"перегородки-второй-этаж","to":"сантехника-черновая-второй-этаж"},{"crit":true,"from":"перегородки-второй-этаж","to":"электрика-черновая-второй-этаж"},{"from":"перегородки-первый-этаж","to":"сантехника-черновая-первый-этаж"},{"from":"перегородки-первый-этаж","to":"электрика-черновая-первый-этаж"},{"from":"плитка-санузлы-второй-этаж","to":"сантехприборы"},{"from":"плитка-санузлы-второй-этаж","to":"электрика-чистовая"},{"from":"плитка-санузлы-первый-этаж","to":"сантехприборы"},{"from":"плитка-санузлы-первый-этаж","to":"электрика-чистовая"},{"from":"полы-чистовые-второй-этаж","to":"уборка-и-приёмка"},{"from":"полы-чистовые-первый-этаж","to":"уборка-и-приёмка"},{"from":"сантехника-черновая-второй-этаж","to":"стяжка-второй-этаж"},{"from":"сантехника-черновая-второй-этаж","to":"штукатурка-второй-этаж"},{"from":"сантехника-черновая-первый-этаж","to":"стяжка-первый-этаж"},{"from":"сантехника-черновая-первый-этаж","to":"штукатурка-первый-этаж"},{"from":"сантехприборы","to":"уборка-и-приёмка"},{"from":"стяжка-второй-этаж","to":"плитка-санузлы-второй-этаж"},{"from":"стяжка-второй-этаж","to":"полы-чистовые-второй-этаж"},{"from":"стяжка-второй-этаж","to":"установка-дверей"},{"from":"стяжка-первый-этаж","to":"плитка-санузлы-первый-этаж"},{"from":"стяжка-первый-этаж","to":"полы-чистовые-первый-этаж"},{"from":"стяжка-первый-этаж","to":"установка-дверей"},{"from":"установка-дверей","to":"уборка-и-приёмка"},{"crit":true,"from":"штукатурка-второй-этаж","to":"малярка-второй-этаж"},{"from":"штукатурка-второй-этаж","to":"плитка-санузлы-второй-этаж"},{"from":"штукатурка-первый-этаж","to":"малярка-первый-этаж"},{"from":"штукатурка-первый-этаж","to":"плитка-санузлы-первый-этаж"},{"crit":true,"from":"электрика-черновая-второй-этаж","to":"штукатурка-второй-этаж"},{"from":"электрика-черновая-первый-этаж","to":"штукатурка-первый-этаж"},{"crit":true,"from":"электрика-чистовая","to":"уборка-и-приёмка"}],"legend":["unit: person-hours","grey: done","blue: in-progress","orange: blocked","red: critical path"],"tasks":[{"done":true,"downs":["подбор-материалов","сценарий-освещения"],"estimate":40.0,"name":"дизайн-проект","role":"дизайнер","status":"done"},{"description":"снять старую отделку, вскрыть стены под новые трассы","done":true,"downs":["перегородки-первый-этаж","перегородки-второй-этаж","вентиляция"],"estimate":40.0,"name":"демонтаж","role":"отделочник","status":"done"},{"days":7,"downs":["электрика-черновая-первый-этаж","сантехника-черновая-первый-этаж"],"end":"2026-11-12","estimate":40.0,"executor":"михаил","name":"перегородки-первый-этаж","role":"отделочник","start":"2026-11-05","status":"in-progress"},{"crit":true,"days":6,"downs":["электрика-черновая-второй-этаж","сантехника-черновая-второй-этаж"],"end":"2026-11-19","estimate":32.0,"executor":"михаил","name":"перегородки-второй-этаж","role":"отделочник","start":"2026-11-13"},{"days":3,"description":"приточка и вытяжка, скрытые за натяжными потолками","downs":["стяжка-первый-этаж","малярка-первый-этаж","малярка-второй-этаж"],"end":"2026-11-07","estimate":24.0,"executor":"сергей","name":"вентиляция","role":"сантехник","start":"2026-11-05"},{"days":5,"downs":["штукатурка-первый-этаж"],"end":"2026-11-18","estimate":40.0,"executor":"виктор","name":"электрика-черновая-первый-этаж","role":"электрик","start":"2026-11-13"},{"crit":true,"days":5,"downs":["штукатурка-второй-этаж"],"end":"2026-11-25","estimate":36.0,"executor":"виктор","name":"электрика-черновая-второй-этаж","role":"электрик","start":"2026-11-20"},{"days":4,"downs":["стяжка-первый-этаж","штукатурка-первый-этаж"],"end":"2026-11-17","estimate":32.0,"executor":"сергей","name":"сантехника-черновая-первый-этаж","role":"сантехник","start":"2026-11-13"},{"days":4,"downs":["стяжка-второй-этаж","штукатурка-второй-этаж"],"end":"2026-11-24","estimate":28.0,"executor":"сергей","name":"сантехника-черновая-второй-этаж","role":"сантехник","start":"2026-11-20"},{"days":7,"downs":["плитка-санузлы-первый-этаж","установка-дверей","полы-чистовые-первый-этаж"],"end":"2026-12-09","estimate":40.0,"executor":"михаил","name":"стяжка-первый-этаж","role":"отделочник","start":"2026-12-02"},{"days":6,"downs":["плитка-санузлы-второй-этаж","установка-дверей","полы-чистовые-второй-этаж"],"end":"2026-12-24","estimate":32.0,"executor":"михаил","name":"стяжка-второй-этаж","role":"отделочник","start":"2026-12-19"},{"days":10,"downs":["плитка-санузлы-первый-этаж","малярка-первый-этаж"],"end":"2026-12-01","estimate":56.0,"executor":"михаил","name":"штукатурка-первый-этаж","role":"отделочник","start":"2026-11-20"},{"crit":true,"days":8,"downs":["плитка-санузлы-второй-этаж","малярка-второй-этаж"],"end":"2026-12-18","estimate":48.0,"executor":"михаил","name":"штукатурка-второй-этаж","role":"отделочник","start":"2026-12-10"},{"days":6,"description":"плитка, паркет, палитры красок и сантехника — сравнить и заказать","end":"2026-11-11","estimate":24.0,"executor":"анна","name":"подбор-материалов","role":"дизайнер","start":"2026-11-05"},{"days":2,"end":"2026-11-06","estimate":16.0,"executor":"агент-подбора","name":"сценарий-освещения","role":"дизайнер","start":"2026-11-05"},{"days":6,"downs":["электрика-чистовая","сантехприборы"],"end":"2026-12-16","estimate":48.0,"executor":"григорий","name":"плитка-санузлы-первый-этаж","role":"плиточник","start":"2026-12-10"},{"days":5,"downs":["электрика-чистовая","сантехприборы"],"end":"2026-12-30","estimate":40.0,"executor":"григорий","name":"плитка-санузлы-второй-этаж","role":"плиточник","start":"2026-12-25"},{"days":8,"downs":["полы-чистовые-первый-этаж","электрика-чистовая"],"end":"2027-01-16","estimate":48.0,"executor":"михаил","name":"малярка-первый-этаж","role":"отделочник","start":"2026-12-25"},{"crit":true,"days":7,"downs":["полы-чистовые-второй-этаж","электрика-чистовая"],"end":"2027-01-25","estimate":40.0,"executor":"михаил","name":"малярка-второй-этаж","role":"отделочник","start":"2027-01-18"},{"days":3,"downs":["уборка-и-приёмка"],"end":"2026-12-28","estimate":24.0,"executor":"павел","name":"установка-дверей","role":"столяр","start":"2026-12-25","status":"blocked"},{"days":4,"downs":["уборка-и-приёмка"],"end":"2027-01-21","estimate":32.0,"executor":"павел","name":"полы-чистовые-первый-этаж","role":"столяр","start":"2027-01-18"},{"days":3,"downs":["уборка-и-приёмка"],"end":"2027-01-28","estimate":24.0,"executor":"павел","name":"полы-чистовые-второй-этаж","role":"столяр","start":"2027-01-26"},{"crit":true,"days":4,"description":"розетки, выключатели, щиток и светильники","downs":["уборка-и-приёмка"],"end":"2027-01-29","estimate":32.0,"executor":"виктор","name":"электрика-чистовая","role":"электрик","start":"2027-01-26"},{"days":3,"downs":["уборка-и-приёмка"],"end":"2027-01-12","estimate":24.0,"executor":"сергей","name":"сантехприборы","role":"сантехник","start":"2027-01-09"},{"crit":true,"days":4,"end":"2027-02-03","estimate":24.0,"executor":"михаил","name":"уборка-и-приёмка","role":"отделочник","start":"2027-01-30"}]}</script>
 <script>
 (function () {
@@ -7292,21 +6934,10 @@ __webpack_exports__ = __webpack_exports__["default"];
     elements: elements,
     // A read-only view: the positions are ELK's, nothing grabs a node.
     autoungrabify: true,
-    layout: {
-      name: 'elk',
-      fit: false, // the glue fits, at stop, with its own padding
-      padding: FIT_PAD,
-      elk: {
-        algorithm: 'layered',
-        'elk.direction': DATA.direction,
-        // Spacing, visibly airy — the hand-rolled renderer was widened
-        // 1.5x at the maintainer's request (H_GAP 60 -> 90, ROW_H 56 ->
-        // 84); ELK gets that air, and a little more layer to layer.
-        'elk.spacing.nodeNode': 90,
-        'elk.layered.spacing.nodeNodeBetweenLayers': 100
-      },
-      stop: function () { fit(); }
-    },
+    // The nodes carry no positions yet — ELK delivers them below; preset
+    // keeps cytoscape from scattering them in the meantime, and the glue
+    // fits once the layout has landed.
+    layout: { name: 'preset', fit: false },
     style: [
       {
         selector: 'node',
@@ -7348,7 +6979,19 @@ __webpack_exports__ = __webpack_exports__["default"];
           'line-color': '#9aa4b2',
           'target-arrow-shape': 'triangle',
           'target-arrow-color': '#9aa4b2',
-          'curve-style': 'straight'
+          // The edges ride ELK's computed routes: `segments` draws the
+          // polyline through the segment points the glue maps from ELK's
+          // sections below. `node-position` makes those points interpolate
+          // between the node centers (the space the mapping inverts), and
+          // the manual source/target endpoints pin the drawn ends to ELK's
+          // border points instead of a center-ray projection — the
+          // projection misses whenever ELK spreads ports off-center.
+          'curve-style': 'segments',
+          'edge-distances': 'node-position',
+          'segment-weights': 'data(w)',
+          'segment-distances': 'data(d)',
+          'source-endpoint': 'data(send)',
+          'target-endpoint': 'data(tend)'
         }
       },
       { selector: 'edge.crit', style: { 'line-color': '#b91c1c', 'target-arrow-color': '#b91c1c' } },
@@ -7375,6 +7018,89 @@ __webpack_exports__ = __webpack_exports__["default"];
         }
       }
     ]
+  });
+  var cyNodes = cy.nodes(), cyEdges = cy.edges();
+
+  // The layout: the vendored ELK layered engine, run directly. The
+  // cytoscape-elk wrapper that used to reach it applies node positions only
+  // — its adapter drops the computed edge routes — so the glue feeds ELK
+  // its own JSON graph (the same measured boxes, edges as id/source/target)
+  // and maps the routes back onto cytoscape itself
+  // (decisions/the-html-graph-routes-edges-along-elks-bend-points.md). The
+  // graph is flat — every node a child of the root — so ELK's node boxes
+  // and edge sections all come back in root coordinates.
+  new ELK().layout({
+    id: 'root',
+    layoutOptions: {
+      algorithm: 'layered',
+      'elk.direction': DATA.direction,
+      // Spacing, visibly airy — the hand-rolled renderer was widened
+      // 1.5x at the maintainer's request (H_GAP 60 -> 90, ROW_H 56 ->
+      // 84); ELK gets that air, and a little more layer to layer.
+      'elk.spacing.nodeNode': 90,
+      'elk.layered.spacing.nodeNodeBetweenLayers': 100
+    },
+    children: DATA.tasks.map(function (t) {
+      return { id: t.name, width: boxWidth(t), height: BOX_H };
+    }),
+    edges: DATA.edges.map(function (e, i) {
+      return { id: 'e' + i, sources: [e.from], targets: [e.to] };
+    })
+  }).then(function (graph) {
+    // ELK positions a node by its top-left corner; cytoscape wants the
+    // center. ELK routes each edge in sections — start point, bends, end
+    // point. Cytoscape's `segments` curve style has no absolute-points
+    // property: it computes its points from segment weights and distances,
+    //   segpt = src + w * (tgt - src) + dist * rot90(unit(tgt - src)),
+    // and `route` below is that formula's exact inverse, so each mapped
+    // pair reconstructs its ELK point bit-for-bit.
+    function route(src, tgt, pts) {
+      var dx = tgt.x - src.x, dy = tgt.y - src.y;
+      var l2 = dx * dx + dy * dy;
+      if (l2 === 0) return null;
+      var ux = dx / Math.sqrt(l2), uy = dy / Math.sqrt(l2);
+      var ws = [], ds = [];
+      for (var i = 0; i < pts.length; i++) {
+        var px = pts[i].x - src.x, py = pts[i].y - src.y;
+        ws.push((px * dx + py * dy) / l2);
+        ds.push(py * ux - px * uy);
+      }
+      return { w: ws, d: ds };
+    }
+    var nodesById = {};
+    graph.children.forEach(function (n) { nodesById[n.id] = n; });
+    cy.batch(function () {
+      graph.children.forEach(function (n, i) {
+        cyNodes[i].position({ x: n.x + n.width / 2, y: n.y + n.height / 2 });
+      });
+      graph.edges.forEach(function (e, i) {
+        var s = e.sections && e.sections[0];
+        if (!s) return;
+        var src = nodesById[e.sources[0]], tgt = nodesById[e.targets[0]];
+        var S = { x: src.x + src.width / 2, y: src.y + src.height / 2 };
+        var T = { x: tgt.x + tgt.width / 2, y: tgt.y + tgt.height / 2 };
+        var bends = s.bendPoints || [];
+        // A straight section carries no bends; its midpoint keeps the
+        // segments machinery fed — an empty point list computes NaN ends
+        // and cytoscape refuses to draw the edge at all.
+        var pts = bends.length ? bends : [
+          { x: (s.startPoint.x + s.endPoint.x) / 2, y: (s.startPoint.y + s.endPoint.y) / 2 }
+        ];
+        var mapped = route(S, T, pts);
+        if (!mapped) return;
+        cyEdges[i].data({
+          w: mapped.w,
+          d: mapped.d,
+          // The border anchorings as offsets from the node centers: with
+          // these the drawn line starts and ends exactly on ELK's points,
+          // and the arrowhead lands on the border pointing along ELK's
+          // final approach.
+          send: (s.startPoint.x - S.x) + 'px ' + (s.startPoint.y - S.y) + 'px',
+          tend: (s.endPoint.x - T.x) + 'px ' + (s.endPoint.y - T.y) + 'px'
+        });
+      });
+    });
+    fit(); // the layout has landed; also forces the style's re-evaluation
   });
 
   // The glance and the closure. `hot` is the node whose highlight stands —

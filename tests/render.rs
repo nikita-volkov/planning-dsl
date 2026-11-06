@@ -221,24 +221,24 @@ executors:
 
 #[test]
 fn the_html_is_a_self_contained_file() {
-    // One file, five inline scripts (three vendored bundles, the data
+    // One file, four inline scripts (two vendored bundles, the data
     // block, the glue), no external resource of any kind. The URL counts
     // are the vendored bundles' own strings (license links, module ids):
-    // 19 http:// (4 cytoscape + 15 elkjs) and 5 https:// (4 elkjs + 1
-    // cytoscape-elk) — none of them fetched; re-vendoring re-pins them.
+    // 19 http:// (4 cytoscape + 15 elkjs) and 4 https:// (elkjs) — none of
+    // them fetched; re-vendoring re-pins them.
     let plan = load(PLAN).expect("parses");
     let html = render::html(&plan, Direction::Tb, None);
     assert!(html.contains("<script>"), "{html}");
     assert!(!html.contains("<script src="), "{html}");
     assert!(!html.contains("<link "), "{html}");
     assert!(!html.contains("@import"), "{html}");
-    assert_eq!(html.matches("<script").count(), 5, "{html}");
+    assert_eq!(html.matches("<script").count(), 4, "{html}");
     assert_eq!(
         html.matches("http://").count(),
         19,
         "only the bundles' inert URL strings"
     );
-    assert_eq!(html.matches("https://").count(), 5, "{html}");
+    assert_eq!(html.matches("https://").count(), 4, "{html}");
 }
 
 #[test]
@@ -811,6 +811,27 @@ fn edges_wear_arrowheads_picked_by_class() {
 }
 
 #[test]
+fn the_edges_ride_elks_sections_as_segment_points() {
+    // The glue runs the vendored ELK directly (the wrapper applied node
+    // positions only) and maps each edge section onto cytoscape's
+    // `segments` curve style: the inverse of cytoscape's
+    // weight/distance interpolation, plus manual source/target endpoints
+    // so the drawn ends land on ELK's border points. The layout options
+    // live on the ELK graph now, not in a cytoscape layout config.
+    let html = render::html(&load(PLAN).expect("parses"), Direction::Tb, None);
+    assert!(html.contains("new ELK().layout({"), "{html}");
+    assert!(html.contains("function route(src, tgt, pts)"), "{html}");
+    assert!(html.contains("'curve-style': 'segments'"), "{html}");
+    assert!(html.contains("'edge-distances': 'node-position'"), "{html}");
+    assert!(html.contains("'segment-weights': 'data(w)'"), "{html}");
+    assert!(html.contains("'segment-distances': 'data(d)'"), "{html}");
+    assert!(html.contains("'source-endpoint': 'data(send)'"), "{html}");
+    assert!(html.contains("'target-endpoint': 'data(tend)'"), "{html}");
+    assert!(!html.contains("name: 'elk'"), "{html}");
+    assert!(!html.contains("'curve-style': 'straight'"), "{html}");
+}
+
+#[test]
 fn a_task_may_carry_crit_and_a_status_class_together() {
     // The class is additive, not a chain: first is in-progress and on the
     // chain, second blocked and on it — crit first, status second, and the
@@ -944,9 +965,11 @@ fn the_shift_closure_is_cytoscapes_successors_over_the_printed_graph() {
 
 #[test]
 fn the_artifact_carries_the_vendored_bundles_verbatim() {
-    // The three pinned dist builds, embedded byte-for-byte — a broken
+    // The two pinned dist builds, embedded byte-for-byte — a broken
     // include_str! drops megabytes and fails loudly here. The attribution
-    // note names the libraries, versions and licenses.
+    // note names the libraries, versions and licenses. (The cytoscape-elk
+    // wrapper left the vendored set with the edge routing: the glue runs
+    // the ELK engine directly.)
     let plan = load(PLAN).expect("parses");
     let html = render::html(&plan, Direction::Tb, None);
     assert!(
@@ -957,20 +980,16 @@ fn the_artifact_carries_the_vendored_bundles_verbatim() {
         html.contains(include_str!("../assets/elk-0.12.1.bundled.js")),
         "{html}"
     );
-    assert!(
-        html.contains(include_str!("../assets/cytoscape-elk-2.3.0.js")),
-        "{html}"
-    );
     assert!(html.contains("cytoscape 3.34.4 (MIT)"), "{html}");
     assert!(html.contains("elkjs 0.12.1 (EPL-2.0)"), "{html}");
-    assert!(html.contains("cytoscape-elk 2.3.0 (MIT)"), "{html}");
-    // The bundles load in the order the wrapper's UMD factory expects:
-    // cytoscape (the global it registers against), then the ELK engine
-    // (the global its factory reads), then the wrapper.
+    // The wrapper is gone with the edge routing: its bundle (whose UMD
+    // factory registers the `cytoscapeElk` global) is not embedded.
+    assert!(!html.contains("cytoscapeElk"), "{html}");
+    // The bundles load in the order the glue needs: cytoscape (the viewer
+    // global), then the ELK engine (the `ELK` global the layout runs on).
     let cy = html.find(include_str!("../assets/cytoscape-3.34.4.min.js")).expect("cytoscape");
     let elk = html.find(include_str!("../assets/elk-0.12.1.bundled.js")).expect("elk");
-    let wrap = html.find(include_str!("../assets/cytoscape-elk-2.3.0.js")).expect("wrapper");
-    assert!(cy < elk && elk < wrap, "{html}");
+    assert!(cy < elk, "{html}");
 }
 
 // The gantt: a function of the schedule artifact alone. Its golden dates are
