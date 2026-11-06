@@ -14,10 +14,10 @@ commands:
                          are file edits under git)
   emit-schema            print the JSON Schema for plan.yaml
   render <plan.yaml>     write the derived renders beside the plan
-      --dependencies-mmd <file>
+      --dependencies-mmd [<file>]
                          the mermaid dependency graph (default:
                          <stem>.dependencies.mmd)
-      --dependencies-html <file>
+      --dependencies-html [<file>]
                          the interactive graph (default:
                          <stem>.dependencies.html); on a plan that
                          schedules it marks the critical path — a
@@ -29,9 +29,9 @@ commands:
                          the mermaid gantt (default: <stem>.gantt.mmd);
                          opt-in: it runs the scheduler, so the plan needs a
                          start: and full estimates — a refusal writes nothing
-      --gantt-html       the interactive HTML gantt (default:
-                         <stem>.gantt.html); an optional file name, the same
-                         gate as --gantt-mmd
+      --gantt-html [<file>]
+                         the interactive HTML gantt (default:
+                         <stem>.gantt.html); the same gate as --gantt-mmd
 ";
 
 fn main() -> ExitCode {
@@ -202,21 +202,16 @@ fn render(args: &[String]) -> ExitCode {
     while let Some(arg) = flags.next() {
         match arg.as_str() {
             "--dependencies-mmd" | "--dependencies-html" | "--gantt-mmd" | "--gantt-html" => {
-                // A following non-flag token is the file name. `--gantt-mmd` and
-                // `--gantt-html` may also stand alone: their presence, not a
-                // name, is the request — unnamed, they take the default file.
+                // A following non-flag token is the file name; bare, every
+                // flag takes its default. For `--gantt-mmd` and
+                // `--gantt-html` the presence, not a name, is the request —
+                // for the dependencies flags the graph writes either way,
+                // so a bare flag is the same request as absence.
                 let named = match flags.peek() {
                     Some(next) if !next.starts_with('-') => flags.next(),
                     _ => None,
                 };
-                let target = match named {
-                    Some(v) => Some(v.as_str()),
-                    None if arg == "--gantt-mmd" || arg == "--gantt-html" => None,
-                    None => {
-                        eprintln!("error: {arg} needs a file\n{USAGE}");
-                        return ExitCode::from(2);
-                    }
-                };
+                let target = named.map(String::as_str);
                 match arg.as_str() {
                     "--dependencies-mmd" => mmd_path = target,
                     "--dependencies-html" => html_path = target,

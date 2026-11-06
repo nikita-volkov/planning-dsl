@@ -1158,6 +1158,39 @@ fn the_cli_accepts_an_explicit_gantt_file() {
 }
 
 #[test]
+fn the_dependencies_flags_take_their_defaults_bare_or_named() {
+    // Bare `--dependencies-*` is the same request as absence: the default
+    // name beside the plan. Named, the graph goes to the given file.
+    let dir = tempdir("bare-dependencies");
+    let out = render_cli(&dir, PLAN, &["--dependencies-mmd", "--dependencies-html"]);
+    assert!(out.status.success(), "{:?}", out);
+    let mmd = std::fs::read_to_string(dir.join("plan.dependencies.mmd")).expect("the mmd written");
+    assert!(mmd.starts_with("flowchart "), "{mmd}");
+    let html = std::fs::read_to_string(dir.join("plan.dependencies.html")).expect("the html written");
+    assert!(html.contains("<title>"), "{html}");
+
+    let dir = tempdir("named-dependencies");
+    let named_mmd = dir.join("graph.mmd");
+    let named_html = dir.join("graph.html");
+    let out = render_cli(
+        &dir,
+        PLAN,
+        &[
+            "--dependencies-mmd",
+            named_mmd.to_str().expect("utf-8"),
+            "--dependencies-html",
+            named_html.to_str().expect("utf-8"),
+        ],
+    );
+    assert!(out.status.success(), "{:?}", out);
+    assert!(named_mmd.exists());
+    assert!(named_html.exists());
+    // The defaults stay untouched when the names are explicit.
+    assert!(!dir.join("plan.dependencies.mmd").exists());
+    assert!(!dir.join("plan.dependencies.html").exists());
+}
+
+#[test]
 fn the_html_graph_is_top_down_by_default() {
     // The default lives at the flag: the CLI writes tb without one, and its
     // bytes are exactly render::html's Direction::Tb over the schedule the
