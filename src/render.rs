@@ -6,10 +6,10 @@
 //! alone; the HTML graph is a function of the plan plus the artifact when
 //! handed one — its critical path and the per-task lines the detail card
 //! reads (`specs/scheduler.md`: renderers consume it, nothing recomputes
-//! it); the HTML gantt is a function of the plan and the artifact together
-//! — the artifact alone fixes every date, the plan is read only for the
-//! dependency arrows and the authored fields the view shows (role,
-//! estimate, unit) — and none re-derives a date, a capacity or an
+//! it); the HTML gantt draws with the vendored dhtmlx-gantt 10.0.3
+//! (`decisions/the-html-gantt-is-a-vendored-dhtmlx-gantt.md`) — the
+//! artifact alone fixes every date, the plan is read only for the
+//! dependency arrows — and none re-derives a date, a capacity or an
 //! assignment. The determinism is carried by the model's declaration order
 //! (the `DeclarationMap`) and by canonicalizing the edge set, never by
 //! hashing or sorting at the end.
@@ -20,7 +20,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use chrono::{Datelike, Duration};
+use chrono::Duration;
 use serde_json::{json, Map as JsonMap, Value as JsonValue};
 
 use crate::model::{Plan, Status};
@@ -171,46 +171,54 @@ pub fn gantt(schedule: &Schedule) -> String {
     out
 }
 
-/// The interactive HTML gantt: one self-contained file, the schedule artifact
-/// drawn as a horizontal timeline — a task-list column on the left, a day grid
-/// on the right, a two-tier time axis (a band per calendar month over the
-/// day-of-month numbers), gridlines at every day boundary. Rows group by
-/// executor, first appearance along the artifact's task declaration order —
-/// the mermaid gantt's precedent — with a full-width header band per executor;
-/// within a group, declaration order. Done tasks carry no dates in the
-/// artifact and are off the chart entirely. The dates come from the artifact
-/// alone; the plan is read only for the dependency arrows (`edges`,
-/// canonicalized — the DAG as authored, nothing recomputed) and for the
-/// authored fields the detail card shows (role, estimate, unit). Bars carry
-/// the status fill and the artifact's red stroke on critical-path members.
-/// All geometry is computed here, in integers, so the bytes cannot depend on
-/// float formatting; the inline ES5 script only reads what was printed
-/// (data-* attributes): hovering a bar dims the chart and highlights the bar,
-/// its direct dependency arrows and their other endpoints, click pins (the
-/// same drag-vs-click rule as the HTML graph), a bottom-left card shows the
-/// task's fields, and pan / wheel zoom / fit match the HTML graph's grammar.
-/// The today line is drawn by the viewer's browser from the viewer's clock —
-/// the file's bytes stay deterministic. No libs, no CDN, opens offline.
+/// The interactive HTML gantt: one self-contained file built on the vendored
+/// dhtmlx-gantt 10.0.3 (MIT, Community edition —
+/// `decisions/the-html-gantt-is-a-vendored-dhtmlx-gantt.md`). The
+/// configuration is the comparison file the maintainer chose on 2026-11-04
+/// (`research/gantt-library-comparison`, commit 9a6157f) fed from this
+/// repo's data — the same look and behavior, not a re-design. The community
+/// bundle draws everything; Rust emits the pinned dist bundle verbatim
+/// (`assets/dhtmlx-gantt-10.0.3/`, the license file beside it), a JSON data
+/// block, and the init glue.
+///
+/// The data block: one `project` summary row per executor — executor
+/// grouping is emulated, the community edition bundles no `groupBy` — in
+/// first-appearance order along the artifact's task declaration order, the
+/// mermaid gantt's precedent; one record per dated task under its
+/// executor's row, declaration order. Done tasks carry no dates in the
+/// artifact and are off the chart entirely. `end_date` is written as the
+/// artifact's end + 1 day — dhtmlx's end is exclusive, the artifact's is
+/// inclusive — and the tooltip and the quick_info card report the
+/// artifact's inclusive end from the meta, which carries every field they
+/// show: executor, start, end, active-days, status, and the critical flag.
+/// The links are the canonicalized edges whose both endpoints have a bar —
+/// a done task has no dates, so no bar, so no link. A dated task the
+/// artifact leaves unassigned (the scheduler never produces one) renders
+/// defensively top-level, in no group.
+///
+/// The glue configures, reads, and decides nothing: `readonly: true` (the
+/// artifact is a computed, regenerable view), `auto_scheduling: false` (the
+/// artifact's dates are the computed truth, never recomputed client-side),
+/// the zoom extension at three two-tier levels wired to day/week/month
+/// buttons (the community bundle adds no zoom UI of its own), the status
+/// colors and the critical-path bars through the `task_class` template, and
+/// the today tint through `scale_cell_class`/`timeline_cell_class` — drawn
+/// by the viewer's browser from the viewer's clock, only inside the window,
+/// so the file's bytes stay deterministic.
+///
+/// The vendored stylesheet `@font-face`s Inter from fonts.gstatic.com; those
+/// rules are stripped at render time (`strip_remote_font_faces`) and the
+/// system-font fallback the stylesheet's own stack names takes over — the
+/// emitted file makes zero network references and opens offline.
+///
+/// The bytes stay deterministic: the model's declaration order, the
+/// canonicalized edge set, the pinned bundle and the stripped stylesheet —
+/// same plan, same artifact, same bytes.
 pub fn gantt_html(plan: &Plan, schedule: &Schedule) -> String {
-    // Geometry, in integers, so the bytes cannot depend on float formatting.
-    const DAY_W: usize = 26; // one day column
-    const ROW_H: usize = 36;
-    const BAR_H: usize = 20;
-    const AXIS_H: usize = 44; // two tiers: the month band over the day numbers
-    const CHAR_W: usize = 8; // 11px monospace advances ~6.6px; slack kept
-    const PAD_X: usize = 10;
-    const MIN_LABEL_W: usize = 120;
-    const STUB: usize = 6; // the horizontal stub off a bar's right edge
-
     // The window: the artifact's span; with nothing left to do, its single
     // first day.
     let window_start = schedule.start;
-    let window_end = schedule.plan_end.unwrap_or(schedule.start);
-    let days = window_end
-        .signed_duration_since(window_start)
-        .num_days()
-        .max(0) as usize
-        + 1;
+    let window_end = schedule.plan_end.unwrap_or(schedule.start) + Duration::days(1);
 
     // The dated lines, declaration order. Done tasks carry no dates — off the
     // chart entirely, the mermaid gantt's recorded precedent.
@@ -223,291 +231,137 @@ pub fn gantt_html(plan: &Plan, schedule: &Schedule) -> String {
 
     // Executors in first-appearance order along that declaration order. A
     // dated task the artifact leaves unassigned (the scheduler never produces
-    // one) renders, defensively, in an unnamed leading group with no header.
-    let mut groups: Vec<Option<&str>> = Vec::new();
+    // one) renders, defensively, top-level in no group.
+    let mut executors: Vec<Option<&str>> = Vec::new();
     for &(_, line) in &dated {
         let executor = line.executor.as_deref();
-        if !groups.contains(&executor) {
-            groups.push(executor);
+        if !executors.contains(&executor) {
+            executors.push(executor);
         }
     }
-    groups.sort_by_key(|g| g.is_some());
+    executors.sort_by_key(|g| g.is_some());
 
-    // Rows: a header band per named group, one row per dated task; row
-    // indices count bands too, everything hangs off the axis.
-    let mut bands: Vec<(usize, &str)> = Vec::new();
-    let mut geom: BTreeMap<&str, (usize, usize, usize)> = BTreeMap::new();
-    let mut row = 0;
-    for group in &groups {
-        if let Some(name) = group {
-            bands.push((row, name));
-            row += 1;
-        }
-        for &(task, line) in &dated {
-            if line.executor.as_deref() != *group {
-                continue;
-            }
-            let start = line.start.expect("dated");
-            let start_idx = start
-                .signed_duration_since(window_start)
-                .num_days()
-                .max(0) as usize;
-            let span = line
-                .end
-                .expect("dated")
-                .signed_duration_since(start)
-                .num_days()
-                .max(0) as usize
-                + 1;
-            geom.insert(task, (start_idx, span, row));
-            row += 1;
-        }
-    }
-    let total_rows = row;
-
-    // The label column fits the widest task name it carries.
-    let label_w = dated
-        .iter()
-        .map(|(name, _)| name.chars().count() * CHAR_W + 2 * PAD_X)
-        .max()
-        .unwrap_or(MIN_LABEL_W)
-        .max(MIN_LABEL_W);
-    let canvas_w = label_w + days.saturating_mul(DAY_W);
-    let canvas_h = AXIS_H + total_rows.saturating_mul(ROW_H);
-
-    // The crit chain, read off the artifact: bars named in it wear the red
-    // stroke, and an arrow wears it exactly when it is a consecutive pair of
-    // the chain — dependency-first, so a pair runs dependency → dependent.
+    // The crit chain, read off the artifact: records named in it wear the
+    // critical flag, painted by the task_class template.
     let crit_nodes: BTreeSet<&str> = schedule.critical_path.iter().map(String::as_str).collect();
-    let crit_edges: BTreeSet<(&str, &str)> = schedule
-        .critical_path
-        .windows(2)
-        .map(|pair| (pair[0].as_str(), pair[1].as_str()))
+
+    // The links: the canonicalized edges whose both endpoints have a bar —
+    // a done task has no dates, so no bar, so no link. Ids count from 1.
+    let dated_set: BTreeSet<&str> = dated.iter().map(|&(name, _)| name).collect();
+    let links: Vec<JsonValue> = edges(plan)
+        .iter()
+        .filter(|&(from, to)| dated_set.contains(from) && dated_set.contains(to))
+        .enumerate()
+        .map(|(i, &(from, to))| {
+            json!({"id": i + 1, "source": from, "target": to, "type": "0"})
+        })
         .collect();
 
-    // The month tier: one label per calendar month spanning its days.
-    let mut months: Vec<(usize, usize, String)> = Vec::new();
-    for i in 0..days {
-        let label = format!(
-            "{:04}-{:02}",
-            (window_start + Duration::days(i as i64)).year(),
-            (window_start + Duration::days(i as i64)).month(),
+    // The data records: a project row per executor, then every dated task
+    // under its executor's row — declaration order, the tree the grid draws.
+    let mut data: Vec<JsonValue> = Vec::new();
+    for name in executors.iter().flatten() {
+        data.push(json!({
+            "id": format!("grp-{name}"),
+            "text": name,
+            "type": "project",
+            "render": "project",
+            "open": true,
+            "meta": {"header": true},
+        }));
+    }
+    for &(task, line) in &dated {
+        let start = line.start.expect("dated");
+        let end = line.end.expect("dated");
+        let mut meta = JsonMap::new();
+        if let Some(executor) = &line.executor {
+            meta.insert("executor".into(), json!(executor));
+        }
+        meta.insert("start".into(), json!(start.to_string()));
+        meta.insert("end".into(), json!(end.to_string()));
+        if let Some(days) = line.active_days {
+            meta.insert("active_days".into(), json!(days));
+        }
+        meta.insert("status".into(), json!(status_label(line.status)));
+        meta.insert("critical".into(), json!(crit_nodes.contains(task)));
+        let mut rec = JsonMap::new();
+        rec.insert("id".into(), json!(task));
+        rec.insert("text".into(), json!(task));
+        if let Some(executor) = &line.executor {
+            rec.insert("parent".into(), json!(format!("grp-{executor}")));
+        }
+        rec.insert("start_date".into(), json!(format!("{start} 00:00:00")));
+        // dhtmlx's end_date is exclusive; the artifact's end is inclusive —
+        // the bar must cover start..end, the tooltip reports the artifact's
+        // end from the meta.
+        rec.insert(
+            "end_date".into(),
+            json!(format!("{} 00:00:00", end + Duration::days(1))),
         );
-        match months.last_mut() {
-            Some((_, last, same)) if *same == label => *last = i,
-            _ => months.push((i, i, label)),
-        }
+        rec.insert("meta".into(), JsonValue::Object(meta));
+        data.push(JsonValue::Object(rec));
     }
 
-    let bar_y = |row: usize| AXIS_H + row * ROW_H + (ROW_H - BAR_H) / 2;
-    let mid_y = |row: usize| AXIS_H + row * ROW_H + ROW_H / 2;
-    let status_of = |line: &TaskSchedule| match line.status {
-        Status::Todo => "todo",
-        Status::InProgress => "in-progress",
-        Status::Blocked => "blocked",
-        Status::Done => "done",
-    };
-
-    let mut svg = String::new();
-    svg.push_str(&format!(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{cw}\" height=\"{ch}\" \
-         data-w=\"{cw}\" data-h=\"{ch}\" data-days=\"{days}\" data-day-w=\"{DAY_W}\" \
-         data-label-w=\"{lw}\" data-start=\"{ws}\" data-end=\"{we}\">\n",
-        cw = canvas_w,
-        ch = canvas_h,
-        lw = label_w,
-        ws = window_start,
-        we = window_end,
-    ));
-    svg.push_str(
-        "<defs><marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" \
-         markerWidth=\"7\" markerHeight=\"7\" orient=\"auto\">\
-         <path d=\"M0,0 L10,5 L0,10 z\" fill=\"#5b6470\"/></marker>\
-         <marker id=\"arrow-crit\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" \
-         markerWidth=\"7\" markerHeight=\"7\" orient=\"auto\">\
-         <path d=\"M0,0 L10,5 L0,10 z\" fill=\"#b91c1c\"/></marker></defs>\n",
-    );
-    svg.push_str("<g id=\"view\">\n");
-
-    // The task-list column's panel, then the day grid: a line at every day
-    // boundary, slightly darker where a month begins.
-    svg.push_str(&format!(
-        "<rect class=\"panel\" x=\"0\" y=\"0\" width=\"{lw}\" height=\"{ch}\"/>\n",
-        lw = label_w,
-        ch = canvas_h,
-    ));
-    for i in 0..days {
-        let x = label_w + i * DAY_W;
-        let class = if i > 0 && (window_start + Duration::days(i as i64)).day() == 1 {
-            "grid month"
-        } else {
-            "grid"
-        };
-        svg.push_str(&format!(
-            "<line class=\"{class}\" x1=\"{x}\" y1=\"0\" x2=\"{x}\" y2=\"{ch}\"/>\n",
-            ch = canvas_h,
-        ));
-    }
-    svg.push_str(&format!(
-        "<line class=\"axis\" x1=\"0\" y1=\"{AXIS_H}\" x2=\"{cw}\" y2=\"{AXIS_H}\"/>\n",
-        cw = canvas_w,
-    ));
-
-    // The time axis: a band label per calendar month, a number per day.
-    for (first, last, label) in &months {
-        let x = label_w + (first + last + 1) * DAY_W / 2;
-        svg.push_str(&format!("<text class=\"month\" x=\"{x}\" y=\"11\">{label}</text>\n"));
-    }
-    for i in 0..days {
-        let d = window_start + Duration::days(i as i64);
-        let x = label_w + i * DAY_W + DAY_W / 2;
-        svg.push_str(&format!(
-            "<text class=\"day\" x=\"{x}\" y=\"33\">{}</text>\n",
-            d.day()
-        ));
-    }
-
-    // Full-width header bands with the executor name, then the task names in
-    // the label column; the divider is repainted over both.
-    for &(band_row, name) in &bands {
-        let y = AXIS_H + band_row * ROW_H;
-        svg.push_str(&format!(
-            "<rect class=\"band\" x=\"0\" y=\"{y}\" width=\"{cw}\" height=\"{ROW_H}\"/>\n",
-            cw = canvas_w,
-        ));
-        svg.push_str(&format!(
-            "<text class=\"band-label\" x=\"{PAD_X}\" y=\"{}\">{}</text>\n",
-            AXIS_H + band_row * ROW_H + ROW_H / 2,
-            escape(name)
-        ));
-    }
-    for group in &groups {
-        for &(task, line) in &dated {
-            if line.executor.as_deref() != *group {
-                continue;
-            }
-            let task_row = geom[task].2;
-            svg.push_str(&format!(
-                "<text class=\"tlabel\" x=\"{PAD_X}\" y=\"{}\">{}</text>\n",
-                mid_y(task_row),
-                escape(task)
-            ));
-        }
-    }
-    svg.push_str(&format!(
-        "<line class=\"divider\" x1=\"{lw}\" y1=\"0\" x2=\"{lw}\" y2=\"{ch}\"/>\n",
-        lw = label_w,
-        ch = canvas_h,
-    ));
-
-    // Arrows follow execution order, the community convention: they leave
-    // the dependency's right edge and enter the dependent's left edge, both
-    // at the bar's vertical middle — an orthogonal elbow: horizontal stub,
-    // vertical travel, horizontal in. Saturating arithmetic guards the elbow
-    // against a successor that does not start after its predecessor ends
-    // (the scheduler guarantees it; the renderer is defensive). An endpoint
-    // with no bar — a done task — takes no arrow.
-    for (from, to) in edges(plan) {
-        let (f, t) = match (geom.get(from), geom.get(to)) {
-            (Some(f), Some(t)) => (*f, *t),
-            _ => continue,
-        };
-        let sx = label_w
-            .saturating_add(f.0.saturating_add(f.1).saturating_mul(DAY_W));
-        let sy = mid_y(f.2);
-        let ex = label_w.saturating_add(t.0.saturating_mul(DAY_W));
-        let ey = mid_y(t.2);
-        let mid = sx.saturating_add(STUB).min(ex).max(sx);
-        let class = if crit_edges.contains(&(from, to)) {
-            "link crit"
-        } else {
-            "link"
-        };
-        svg.push_str(&format!(
-            "<path class=\"{class}\" data-from=\"{f}\" data-to=\"{t}\" \
-             d=\"M {sx},{sy} H {mid} V {ey} H {ex}\"/>\n",
-            f = escape(from),
-            t = escape(to),
-        ));
-    }
-
-    // Bars paint over the arrows. The card reads the task's fields off the
-    // data attributes, so every field the card shows is printed here —
-    // empty ones omitted (no executor, no estimate).
-    for group in &groups {
-        for &(task, line) in &dated {
-            if line.executor.as_deref() != *group {
-                continue;
-            }
-            let (start_idx, span, task_row) = geom[task];
-            let x = label_w.saturating_add(start_idx.saturating_mul(DAY_W));
-            let y = bar_y(task_row);
-            let w = span.saturating_mul(DAY_W);
-            let status = status_of(line);
-            let crit = crit_nodes.contains(task);
-            let class = if crit {
-                format!("bar {status} crit")
-            } else {
-                format!("bar {status}")
-            };
-            let mut attrs = format!("data-id=\"{}\" data-status=\"{status}\"", escape(task));
-            if let Some(executor) = line.executor.as_deref() {
-                attrs.push_str(&format!(" data-executor=\"{}\"", escape(executor)));
-            }
-            attrs.push_str(&format!(
-                " data-start=\"{}\" data-end=\"{}\"",
-                line.start.expect("dated"),
-                line.end.expect("dated"),
-            ));
-            if let Some(active) = line.active_days {
-                attrs.push_str(&format!(" data-active-days=\"{active}\""));
-            }
-            let authored = &plan.tasks[task];
-            attrs.push_str(&format!(" data-role=\"{}\"", escape(&authored.role)));
-            if let Some(estimate) = authored.estimate {
-                attrs.push_str(&format!(" data-estimate=\"{estimate}\""));
-            }
-            if crit {
-                attrs.push_str(" data-crit=\"1\"");
-            }
-            svg.push_str(&format!(
-                "<g class=\"{class}\" {attrs}>\
-                 <rect x=\"{x}\" y=\"{y}\" width=\"{w}\" height=\"{BAR_H}\" rx=\"4\"/></g>\n"
-            ));
-        }
-    }
-    svg.push_str("</g>\n</svg>\n");
-
-    // The corner legend, one div per line so a future key joins as one more
-    // push: the unit, always; the key to the red stroke, when a chain was
-    // rendered; the keys to the status fills, when such a bar exists; the
-    // today key, pre-printed hidden — the viewer's clock un-hides it.
-    let mut legend = format!(
-        "<div id=\"legend\">\n<div>unit: {}</div>\n",
-        escape(&plan.unit)
-    );
-    if !schedule.critical_path.is_empty() {
-        legend.push_str("<div>red stroke: critical path</div>\n");
-    }
-    if dated
-        .iter()
-        .any(|(_, line)| line.status == Status::InProgress)
-    {
-        legend.push_str("<div>blue: in-progress</div>\n");
-    }
-    if dated.iter().any(|(_, line)| line.status == Status::Blocked) {
-        legend.push_str("<div>orange: blocked</div>\n");
-    }
-    legend.push_str("<div id=\"today-key\" hidden>dashed red: today</div>\n");
-    legend.push_str("</div>\n");
+    let data_json =
+        serde_json::to_string(&json!({"data": data, "links": links})).expect("the data block serializes");
+    // The block rides in a <script> element: a literal `</` in it could
+    // close or confuse the parser — written as `<\/`, which JS reads back
+    // as the same string.
+    let data_json = data_json.replace("</", "<\\/");
 
     let mut out = String::from(GANTT_HEAD);
-    out.push_str(&legend);
-    out.push_str("<div id=\"card\"></div>\n");
-    out.push_str(&svg);
-    out.push_str(GANTT_TAIL);
+    out.push_str(&strip_remote_font_faces(DHTMLX_CSS));
+    out.push_str(GANTT_SHELL);
+    out.push_str(DHTMLX_JS);
+    out.push_str(GANTT_GLUE_HEAD);
+    out.push_str(&format!(
+        "gantt.config.start_date = '{window_start} 00:00:00';\n\
+         gantt.config.end_date = '{window_end} 00:00:00';\n",
+    ));
+    out.push_str(GANTT_GLUE_BODY);
+    out.push_str(&data_json);
+    out.push_str(GANTT_GLUE_TAIL);
     out
 }
+
+/// The vendored dhtmlx stylesheet with its remote `@font-face` rules
+/// stripped: the bundle ships Inter from fonts.gstatic.com, and the emitted
+/// file must make zero network references — stripped, the browser falls
+/// back to the system fonts the stylesheet's own stack names (the icon font
+/// ships as a data URI and stays). Deterministic by construction: a
+/// balanced-brace scan that drops exactly the rules referencing the remote
+/// host, byte-identical for the same input.
+fn strip_remote_font_faces(css: &str) -> String {
+    let mut out = String::with_capacity(css.len());
+    let mut rest = css;
+    while let Some(at) = rest.find("@font-face") {
+        out.push_str(&rest[..at]);
+        let open = at + rest[at..].find('{').expect("a font-face rule opens");
+        let mut depth = 0;
+        let mut close = None;
+        for (i, c) in rest[open..].char_indices() {
+            match c {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        close = Some(open + i + 1);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let close = close.expect("a font-face rule closes");
+        if !rest[at..close].contains("fonts.gstatic.com") {
+            out.push_str(&rest[at..close]);
+        }
+        rest = &rest[close..];
+    }
+    out.push_str(rest);
+    out
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     /// Top-down: the default.
@@ -989,197 +843,167 @@ const HTML_TAIL: &str = r#"<script>
 </html>
 "#;
 
-/// The head of the HTML gantt page: the same background and monospace family
-/// as the HTML graph, its legend and dim/hot grammar, plus the gantt's own
-/// panel, bands, axis, bars, links and the bottom-left detail card. Separate
-/// from `HTML_HEAD` so the two files' styling cannot drift into each other.
+/// The vendored dhtmlx-gantt 10.0.3 dist build, verbatim: the pinned files
+/// committed under `assets/dhtmlx-gantt-10.0.3/` with the license file
+/// (sha256s recorded in `research/gantt-library-comparison/README.md`).
+/// Nothing here fetches from the network; the stylesheet's remote
+/// `@font-face` rules are stripped at render time (`strip_remote_font_faces`).
+const DHTMLX_JS: &str = include_str!("../assets/dhtmlx-gantt-10.0.3/dhtmlxgantt.js");
+const DHTMLX_CSS: &str = include_str!("../assets/dhtmlx-gantt-10.0.3/dhtmlxgantt.css");
+
+/// The head of the HTML gantt page, up to the vendored stylesheet: the
+/// comparison file's shell, the library named in the title. Separate from
+/// the glue so the two halves cannot drift.
 const GANTT_HEAD: &str = r#"<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>schedule gantt</title>
+<title>schedule gantt — dhtmlx-gantt 10.0.3</title>
 <style>
-html, body { margin: 0; height: 100%; background: #fafaf7; }
-body { font-family: ui-monospace, Menlo, Consolas, monospace; overflow: hidden; }
-svg { width: 100vw; height: 100vh; display: block; cursor: grab; }
-svg:active { cursor: grabbing; }
-#legend { position: fixed; top: 12px; right: 16px; padding: 6px 10px; font-size: 11px; line-height: 1.7; color: #5b6470; background: rgba(255,255,255,0.9); border: 1px solid #c4cad2; border-radius: 6px; pointer-events: none; }
-#card { position: fixed; left: 16px; bottom: 16px; display: none; padding: 8px 12px; font-size: 11px; line-height: 1.7; color: #1c2430; background: rgba(255,255,255,0.95); border: 1px solid #c4cad2; border-radius: 6px; pointer-events: none; }
-#card .title { font-weight: 700; }
-#card .crit { color: #b91c1c; }
-.panel { fill: #f1f2ee; }
-.band { fill: #eceee6; }
-.grid { stroke: #e7e7df; }
-.grid.month { stroke: #c4cad2; }
-.axis, .divider { stroke: #c4cad2; }
-.month { fill: #5b6470; font-size: 10px; text-anchor: middle; dominant-baseline: central; }
-.day { fill: #9aa4b2; font-size: 9px; text-anchor: middle; dominant-baseline: central; }
-.band-label { fill: #5b6470; font-size: 11px; font-weight: 700; dominant-baseline: central; }
-.tlabel { fill: #1c2430; font-size: 11px; dominant-baseline: central; }
-.bar { cursor: pointer; }
-.bar.todo { fill: #5b6470; }
-.bar.in-progress { fill: #2563eb; }
-.bar.blocked { fill: #ea580c; }
-.bar.done { fill: #c4cad2; }
-.bar.crit { stroke: #b91c1c; stroke-width: 2; }
-.link { stroke: #9aa4b2; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
-.link.crit { stroke: #b91c1c; marker-end: url(#arrow-crit); }
-svg.dim .bar, svg.dim .link { opacity: 0.15; }
-svg.dim .bar.crit { opacity: 0.4; }
-svg.dim .bar.hot, svg.dim .link.hot { opacity: 1; }
-svg.dim .bar.hot { stroke: #b45309; stroke-width: 2; }
-svg.dim .link.hot { stroke: #b45309; }
-#today { stroke: #b91c1c; stroke-dasharray: 4 3; }
+"#;
+
+/// After the (stripped) vendored stylesheet: the gantt's own styling — the
+/// comparison's custom css verbatim — then the shell, the attribution note,
+/// and the script tag the vendored bundle rides in behind.
+const GANTT_SHELL: &str = r#"
+</style>
+<style>
+html, body { margin: 0; padding: 0; height: 100%; background: #fafaf7; font-family: ui-monospace, Menlo, Consolas, monospace; }
+#gantt-here { width: 100%; height: 100vh; }
+/* status colors — the native gantt's palette, via the task_class hook */
+.gantt_task_line.st-todo { background-color: #5b6470; }
+.gantt_task_line.st-in-progress { background-color: #2563eb; }
+.gantt_task_line.st-blocked { background-color: #ea580c; }
+.gantt_task_line.crit { box-shadow: inset 0 0 0 2px #b91c1c; }
+/* executor group rows: emulated with project summary rows (the community
+   edition bundles no groupBy plugin) */
+.gantt_task_line.grp-row { background-color: #eceee6; }
+.gantt_task_line .gantt_task_content { color: #ffffff; font-size: 11px; }
+.gantt_task_line.grp-row .gantt_task_content { color: #5b6470; font-weight: 700; }
+.dhx-today-cell { background: #f3d1d1; }
+#zoom-buttons { position: fixed; top: 8px; right: 12px; z-index: 5; }
+#zoom-buttons button { font: 11px ui-monospace, Menlo, Consolas, monospace; margin-left: 4px; padding: 2px 8px; border: 1px solid #c4cad2; border-radius: 4px; background: #fff; color: #5b6470; cursor: pointer; }
 </style>
 </head>
 <body>
+<div id="gantt-here"></div>
+<!-- Rendered by planning-dsl. The gantt draws with vendored
+dhtmlx-gantt 10.0.3 (MIT, Community edition), embedded verbatim below; the bundle
+is a pinned dist build committed under assets/dhtmlx-gantt-10.0.3/ with its
+license file. The stylesheet's remote @font-face rules are stripped at render
+time, so offline the file falls back to a system font. This file is
+self-contained and opens offline. -->
+<script>
 "#;
 
-/// The tail of the HTML gantt page: hover dim + highlight of a bar, its
-/// direct dependency arrows and their other endpoints, click-to-pin with the
-/// four-pixel drag-vs-click rule, the bottom-left detail card built from the
-/// bars' data attributes, pan, wheel zoom, fit — the HTML graph's script
-/// grammar — plus the today line, drawn by the viewer's browser from the
-/// viewer's clock (local date, never `toISOString`, which shifts by UTC) and
-/// only inside the window, so the file's bytes stay deterministic.
-const GANTT_TAIL: &str = r#"<script>
-(function () {
-  var svg = document.querySelector('svg');
-  var view = document.getElementById('view');
-  var W = +svg.dataset.w, H = +svg.dataset.h;
-  var DAYS = +svg.dataset.days, DAY_W = +svg.dataset.dayW, LABEL_W = +svg.dataset.labelW;
-  var bars = Array.prototype.slice.call(svg.querySelectorAll('.bar'));
-  var links = Array.prototype.slice.call(svg.querySelectorAll('.link'));
-  var byId = {};
-  bars.forEach(function (b) { byId[b.getAttribute('data-id')] = b; });
-  var tx = 0, ty = 0, k = 1;
-  var pinned = null, down = null;
-  var card = document.getElementById('card');
+/// After the vendored bundle: the init glue — the only hand-written JS, and
+/// it only configures and reads. The window dates and the data block are
+/// printed between the glue's halves (Rust pushes them ahead of
+/// `GANTT_GLUE_BODY` and `GANTT_GLUE_TAIL`).
+const GANTT_GLUE_HEAD: &str = r#"
+</script>
+<script>
+gantt.plugins({ tooltip: true, quick_info: true });
+gantt.config.date_format = '%Y-%m-%d %H:%i:%s';
+"#;
 
-  function apply() {
-    view.setAttribute('transform', 'translate(' + tx + ',' + ty + ') scale(' + k + ')');
-  }
-  function fit() {
-    k = Math.min((window.innerWidth - 48) / W, (window.innerHeight - 48) / H, 1);
-    if (!isFinite(k) || k <= 0) k = 1;
-    tx = (window.innerWidth - W * k) / 2;
-    ty = (window.innerHeight - H * k) / 2;
-    apply();
-  }
-  function cardFor(bar) {
-    var d = bar.dataset;
-    while (card.firstChild) card.removeChild(card.firstChild);
-    var add = function (text, cls) {
-      var div = document.createElement('div');
-      if (cls) div.className = cls;
-      div.textContent = text;
-      card.appendChild(div);
-    };
-    add(d.id, 'title');
-    add('status: ' + d.status);
-    if (d.executor) add('executor: ' + d.executor);
-    add('start: ' + d.start);
-    add('end: ' + d.end);
-    if (d.activeDays) add('active-days: ' + d.activeDays);
-    add(d.estimate ? d.role + ' · ' + d.estimate : d.role);
-    if (d.crit) add('critical path', 'crit');
-    card.style.display = 'block';
-  }
-  function setHot(id) {
-    svg.classList.add('dim');
-    bars.forEach(function (b) {
-      if (b.getAttribute('data-id') === id) b.classList.add('hot');
-    });
-    links.forEach(function (l) {
-      var f = l.getAttribute('data-from'), t = l.getAttribute('data-to');
-      if (f !== id && t !== id) return;
-      l.classList.add('hot');
-      var other = f === id ? t : f;
-      if (byId[other]) byId[other].classList.add('hot');
-    });
-    if (byId[id]) cardFor(byId[id]);
-  }
-  function clearHot() {
-    svg.classList.remove('dim');
-    bars.forEach(function (b) { b.classList.remove('hot'); });
-    links.forEach(function (l) { l.classList.remove('hot'); });
-    card.style.display = 'none';
-  }
-  // The pin: a click leaves a bar's highlight standing after mouseleave.
-  // Hovering overrides it while over a bar; leaving restores it.
-  function applyPin() {
-    clearHot();
-    if (pinned !== null) setHot(pinned);
-  }
-
-  bars.forEach(function (bar) {
-    var id = bar.getAttribute('data-id');
-    bar.addEventListener('mouseenter', function () { setHot(id); });
-    bar.addEventListener('mouseleave', applyPin);
+const GANTT_GLUE_BODY: &str = r#"gantt.config.readonly = true;        // the artifact is a computed, regenerable view
+gantt.config.auto_scheduling = false; // the dates come from the artifact, not recomputed
+// zoom levels through the bundled zoom extension (v10 community): two tiers
+// per level, month over day like the native gantt at level 0
+if (gantt.ext && gantt.ext.zoom) {
+  gantt.ext.zoom.init({
+    levels: [
+      [
+        { unit: 'month', step: 1, format: '%M %Y' },
+        { unit: 'day', step: 1, format: '%j' }
+      ],
+      [
+        { unit: 'month', step: 1, format: '%M %Y' },
+        { unit: 'week', step: 1, format: function (d) { return gantt.date.date_to_str('%d %M')(d); } }
+      ],
+      [
+        { unit: 'year', step: 1, format: '%Y' },
+        { unit: 'month', step: 1, format: '%M' }
+      ]
+    ]
   });
+  gantt.ext.zoom.setLevel(0);
+} else {
+  gantt.config.scales = [
+    { unit: 'month', step: 1, format: '%M %Y' },
+    { unit: 'day', step: 1, format: '%j' }
+  ];
+}
+gantt.config.columns = [
+  { name: 'text', label: 'Task', tree: true, width: 220 },
+  { name: 'start_date', label: 'Start', width: 90, align: 'center' },
+  { name: 'end_date', label: 'End', width: 90, align: 'center' }
+];
+gantt.templates.task_class = function (start, end, task) {
+  if (!task.meta || task.meta.header) return 'grp-row';
+  return (task.meta.critical ? 'crit ' : '') + 'st-' + task.meta.status;
+};
+// The artifact's fields, one line each — the hover tooltip and the click
+// quick_info card show the same list.
+function taskDetails(task) {
+  var m = task.meta;
+  return '<b>' + task.text + '</b>' +
+    '<br/>executor: ' + m.executor +
+    '<br/>start: ' + m.start +
+    '<br/>end: ' + m.end +
+    '<br/>active-days: ' + m.active_days +
+    '<br/>status: ' + m.status +
+    (m.critical ? '<br/>critical path: yes' : '');
+}
+gantt.templates.tooltip_text = function (start, end, task) {
+  if (!task.meta || task.meta.header) return task.text;
+  return taskDetails(task);
+};
+// The quick_info card shows the same fields as the tooltip; the bundle's
+// default card carries only the name and the time range.
+gantt.templates.quick_info_title = function (start, end, task) {
+  return task.text;
+};
+gantt.templates.quick_info_date = function () { return ''; };
+gantt.templates.quick_info_content = function (start, end, task) {
+  if (!task.meta || task.meta.header) return task.text;
+  return taskDetails(task);
+};
 
-  svg.addEventListener('wheel', function (ev) {
-    ev.preventDefault();
-    var r = svg.getBoundingClientRect();
-    var f = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
-    var mx = ev.clientX - r.left, my = ev.clientY - r.top;
-    tx = mx - (mx - tx) * f;
-    ty = my - (my - ty) * f;
-    k *= f;
-    apply();
-  }, { passive: false });
+const DATA = "#;
 
-  var drag = null;
-  svg.addEventListener('pointerdown', function (ev) {
-    if (ev.button !== 0) return;
-    drag = { x: ev.clientX, y: ev.clientY, tx: tx, ty: ty };
-    // The pointer is captured to the svg on down, so the up targets the
-    // svg; the bar a click means is read off the down's target.
-    down = { x: ev.clientX, y: ev.clientY, target: ev.target };
-    svg.setPointerCapture(ev.pointerId);
-  });
-  svg.addEventListener('pointermove', function (ev) {
-    if (!drag) return;
-    tx = drag.tx + ev.clientX - drag.x;
-    ty = drag.ty + ev.clientY - drag.y;
-    apply();
-  });
-  svg.addEventListener('pointerup', function (ev) {
-    // A click is an up that stayed within a few pixels of its down; a pan
-    // drag never moves the pin. Background (any non-bar) clears it.
-    if (down && ev.button === 0) {
-      var dx = ev.clientX - down.x, dy = ev.clientY - down.y;
-      if (dx * dx + dy * dy <= 16) {
-        var bar = down.target.closest('.bar');
-        var id = bar ? bar.getAttribute('data-id') : null;
-        pinned = id === pinned ? null : id;
-        applyPin();
-      }
-    }
-    drag = null;
-    down = null;
-  });
-  svg.addEventListener('dblclick', fit);
-  window.addEventListener('resize', fit);
+const GANTT_GLUE_TAIL: &str = r#";
 
-  // The today line: the viewer's local date against the window Rust printed.
-  var t = new Date();
-  var utcDays = function (y, m, d) { return Date.UTC(y, m - 1, d) / 86400000; };
-  var parts = svg.dataset.start.split('-');
-  var idx = utcDays(t.getFullYear(), t.getMonth() + 1, t.getDate()) -
-            utcDays(+parts[0], +parts[1], +parts[2]);
-  if (idx >= 0 && idx < DAYS) {
-    var x = LABEL_W + (idx + 0.5) * DAY_W;
-    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('id', 'today');
-    line.setAttribute('x1', x); line.setAttribute('x2', x);
-    line.setAttribute('y1', 0); line.setAttribute('y2', H);
-    view.appendChild(line);
-    document.getElementById('today-key').hidden = false;
-  }
+// today marker, drawn by the viewer's browser from the viewer's clock; only
+// when it falls inside the window — the native gantt's rule. The community
+// bundle ships neither the marker extension nor addTaskLayer, so the today
+// date is highlighted through the scale/timeline cell-class templates
+// instead of a full-height line.
+var TODAY_CELL_CLASS = 'dhx-today-cell';
+function isToday(date) {
+  return gantt.date.day_start(new Date(date)).valueOf() === gantt.date.day_start(new Date()).valueOf();
+}
+gantt.templates.scale_cell_class = function (date) {
+  if (isToday(date)) return TODAY_CELL_CLASS;
+};
+gantt.templates.timeline_cell_class = function (item, date) {
+  if (isToday(date)) return TODAY_CELL_CLASS;
+};
 
-  fit();
-})();
+gantt.init('gantt-here');
+gantt.parse(DATA);
+
+// view-level buttons (the community bundle adds no zoom UI of its own)
+var zoomBtns = document.createElement('div');
+zoomBtns.id = 'zoom-buttons';
+['day', 'week', 'month'].forEach(function (name, i) {
+  var b = document.createElement('button');
+  b.textContent = name;
+  b.onclick = function () { gantt.ext.zoom.setLevel(i); };
+  zoomBtns.appendChild(b);
+});
+document.body.appendChild(zoomBtns);
 </script>
 </body>
 </html>
