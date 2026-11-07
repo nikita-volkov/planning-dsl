@@ -39,3 +39,6 @@ __pycache__/
 .venv/
 node_modules/
 target/
+
+# Session worktrees (AGENTS.md, Process):
+/.agents/worktrees/

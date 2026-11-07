@@ -81,7 +81,7 @@ Current work lives in `tasks/`, one file per task. Tasks are not knowledge: they
 
 This is a solo project: one maintainer working with agent sessions. There is no committee and no PR flow — a session merges into master itself.
 
-- Every session runs in its own worktree and merges into master on completion. A worktree is created as soon as the session knows it will write anything; the merge — only after the tests pass — rebases onto master and fast-forwards when the branch's history is linear, and merges with `--no-ff` when the branch is large or its boundary should stay visible. Conflicts are resolved by the session; the worktree and branch are deleted right after.
+- Every session runs in its own worktree at `./.agents/worktrees/<branch>` and merges into master on completion. A worktree is created as soon as the session knows it will write anything; the merge — only after the tests pass — rebases onto master and fast-forwards when the branch's history is linear, and merges with `--no-ff` when the branch is large or its boundary should stay visible. Conflicts are resolved by the session; the worktree and branch are deleted right after.
 - Anyone, agents included, may propose or challenge a claim by editing and committing; facts with evidence and autodecisions may be changed by agent sessions directly.
 - The human's agreement is the only acceptance of a decision or a spec. An agent never accepts one on the human's behalf; a choice an agent makes alone is an autodecision.
 - Changing the sense of a claim makes it a different claim: retract the old one and write the new one, in one commit.
