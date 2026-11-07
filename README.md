@@ -1,93 +1,95 @@
 # planning-dsl
 
-**План проекта — один YAML-файл. Даты, назначение исполнителей и критический путь — вычисляются из него.**
+**One YAML file is the project plan. Dates, assignment, and the critical path are computed from it.**
 
-Декларативный формат планирования для смешанных команд — людей и ИИ-агентов — и CLI-инструмент поверх него. Вы описываете структуру: задачи с зависимостями, роли, исполнителей с их мощностью, рабочий календарь. Инструмент вычисляет следствия: кто какую задачу возьмёт, когда она начнётся и закончится, где критический путь. Детерминированно: тот же план даёт то же расписание — всегда.
+`planning-dsl` is a declarative planning format for mixed teams — humans and AI agents — with a CLI over it. You declare the world: tasks with dependencies, roles, executors with their capacity, the working calendar. The tool computes the consequences: who takes which task, when it starts and ends, where the critical path runs. Deterministically — the same plan always yields the same schedule.
 
-Правка плана — правка файла в git. Всё остальное пересчитывается.
+Editing the plan is editing a file in git. Everything else is recomputed from it.
 
-## Зачем
+## The pains this removes
 
-- **Один источник правды.** В `plan.yaml` — только авторское: задачи, зависимости, роли, исполнители, календарь. Назначения, даты и критический путь в файл не попадают и не пишутся обратно — все артефакты отдельные и перегенерируются одной командой. Рассинхрон между «планом» и «фактом» невозможен по построению.
-- **Люди и агенты — в одной модели.** Человек описывается `availability` и отпуском, агент — `concurrency`-слотами и календарём «все дни». Оба одинаково: роли плюс мощность. План остаётся про людей: агент в нём — исполнитель, усиление руки, а не автор.
-- **Роли вместо имён.** Задача объявляет роль, назначение вычисляется сопоставлением. Смена исполнителя — строка в списке, а не переписывание плана.
-- **Ошибки умирают на коммите.** Валидатор проверяет словарь ролей, ацикличность зависимостей, имена-слаги, потолок оценки — и перечисляет все ошибки сразу, не первую. Опечатка в роли — внятная ошибка, а не задача, которая тихо повисла.
-- **What-if — это правка файла.** Никаких дат в флагах: сдвинули `start`, добавили отпуск, уволили исполнителя — `schedule` показывает новую картину. История плана — история git.
-- **Рендеры работают офлайн.** Интерактивный HTML-граф зависимостей и HTML-гант самодостаточны: библиотеки вшиты в файл. Скачал — открыл, сеть не нужна.
+| The pain | What planning-dsl does |
+|---|---|
+| Dates are typed by hand in a Gantt tool, and the plan rots the week it is written | The plan declares structure only; a deterministic scheduler computes dates, assignment and the critical path from it. Nothing computed is ever edited back into the file, so there is nothing to drift |
+| Every task names a person, so the plan breaks the day someone leaves | Tasks declare roles; assignment is derived by role matching. A personnel change is one line in the executor list |
+| What-if analysis means rebuilding the plan in a GUI | What-if is a file edit in git: shift `start`, add a vacation, re-run one command. Plan history is git history |
+| Mixed teams — people plus AI agents — fit no planning tool | Executors are modeled uniformly: a human carries `availability` and vacations, an agent carries `concurrency` slots and a works-every-day calendar. Both are just roles plus capacity |
+| Mistakes surface mid-project | The validator refuses typos, broken DAGs, wrong role names and oversized estimates at commit time — and lists every error, not just the first |
+| Planning tools live in a browser tab, behind a login and a subscription | One CLI, one file format, and offline self-contained HTML renders: libraries are embedded, the file opens with no network |
 
-## Быстрый старт
+## Quick start
 
 ```bash
 cargo install --path .    # Rust 1.85+ (edition 2024)
 ```
 
 ```bash
-planning-dsl validate plan.yaml                            # все ошибки сразу, не первая
-planning-dsl schedule plan.yaml                            # расписание в stdout (yaml)
+planning-dsl validate plan.yaml                            # every error at once, not just the first
+planning-dsl schedule plan.yaml                            # the schedule artifact on stdout (yaml)
 planning-dsl render plan.yaml --dependencies-html --gantt-html
 ```
 
-Последняя команда положит рядом с планом `house-renovation.dependencies.mmd`, `.dependencies.html`, `.gantt.mmd` и `.gantt.html` — откройте HTML в браузере, файлы самодостаточны.
+The last command writes `<stem>.dependencies.mmd`, `.dependencies.html`, `.gantt.mmd` and `.gantt.html` beside the plan — open the HTML files in a browser, they are self-contained.
 
-## Как выглядит план
+## What a plan looks like
 
 ```yaml
-unit: person-hours            # единица оценок
-start: 2026-11-10             # когда начинается работа; без него планировщик откажется
-deadline: 2026-12-18          # необязательно: без него не считается опоздание
+unit: person-hours            # the estimate unit
+start: 2026-11-10             # when execution begins; the scheduler refuses without it
+deadline: 2026-12-18          # optional: without it, slippage is not computed
 
-calendar:                     # без calendar: — пн–пт, без праздников
+calendar:                     # absent → Mon–Fri, no holidays
   workdays: [mon, tue, wed, thu, fri]
   holidays: [2026-11-04, 2026-12-31]
 
-roles:                        # словарь ролей — проверяется валидатором
-  architect: проектирует систему и ведёт RFC
-  dev: реализует сервисы
-  tester: пишет и держит тесты
+roles:                        # a declared vocabulary — enforced by validation
+  architect: owns system design and the RFC process
+  dev: implements services
+  tester: writes and maintains tests
 
 tasks:
   design-architecture:
     status: done              # todo | in-progress | blocked | done
     role: architect
   implement-services:
-    description: поднять сервисы по RFC          # проза живёт здесь, не в имени
+    description: stand up the services the architecture RFC fixes   # prose lives here, not in names
     depends-on: [design-architecture]
     role: dev
-    estimate: 40              # человеко-часы; > 160 валидатор откажет — дробите
+    estimate: 40              # person-hours; over 160 the validator refuses — split the task
   implement-tests:
     depends-on: [implement-services]
     role: tester
     estimate: 16
     status: blocked
-    blocked-reason: ждём доступ к стенду
+    blocked-reason: waiting on staging-environment access
 
 executors:
   anton:
     roles: [dev]
   nikita:
     roles: [architect, dev]
-    availability: 0.5         # половина дня на каждом рабочем дне
-  review-agent:               # агент — такой же исполнитель
+    availability: 0.5         # half a day on every working day
+  review-agent:               # an agent — the same executor shape
     roles: [tester]
-    concurrency: 4            # четыре параллельных слота
-    calendar: all             # работает каждый день, праздников нет
+    concurrency: 4            # four parallel slots
+    calendar: all             # works every day, no holidays
 ```
 
-## Команды
+## Commands
 
-### `schedule` — расписание
+### `schedule` — the schedule
 
 ```bash
 planning-dsl schedule plan.yaml
-planning-dsl schedule plan.yaml --format csv --out schedule.csv    # или --format tsv
+planning-dsl schedule plan.yaml --format csv --out schedule.csv    # or --format tsv
 ```
 
-Артефакт: `plan-end`, опоздание до `deadline`, поздний старт, критический путь и по каждой задаче — исполнитель, `start`/`end`, активные дни. CSV/TSV — одна плоская таблица: колонки плана повторяются в каждой строке задачи, критический путь — колонка `on-critical-path`. Открывается в Excel/Sheets, скармливается скриптам.
+The artifact: `plan-end`, slippage against `deadline`, latest start, the critical path, and per task — executor, `start`/`end`, active days. CSV/TSV is one flat table: plan columns repeat on every task row, and the critical path becomes the `on-critical-path` column. It opens in Excel/Sheets and feeds scripts.
 
 ```yaml
 plan-end: 2027-02-03
 slippage-days: 0
-latest-start: 2026-11-28      # поздний старт, ещё не срывающий deadline
+latest-start: 2026-11-28      # the latest start that still makes the deadline
 critical-path: [перегородки-второй-этаж, электрика-черновая-второй-этаж, …]
 tasks:
   штукатурка-второй-этаж:
@@ -97,72 +99,76 @@ tasks:
     active-days: 6
 ```
 
-### `render` — диаграммы
+### `render` — the diagrams
 
-| флаг | что пишет | файл по умолчанию |
+| flag | what it writes | default file |
 |---|---|---|
-| `--dependencies-mmd` | mermaid-граф зависимостей | `<план>.dependencies.mmd` |
-| `--dependencies-html` | интерактивный граф: раскладка ELK, роли и оценки на узлах, `done` приглушены, критический путь выделен | `<план>.dependencies.html` |
-| `--dependencies-direction tb\|lr` | направление раскладки графа | `tb` |
-| `--gantt-mmd` | mermaid-гант | `<план>.gantt.mmd` |
-| `--gantt-html` | интерактивный гант на dhtmlx: секции по исполнителям, критический путь выделен | `<план>.gantt.html` |
+| `--dependencies-mmd` | mermaid dependency graph | `<plan>.dependencies.mmd` |
+| `--dependencies-html` | interactive graph: ELK layout, role and estimate on every node, done tasks muted, critical path highlighted | `<plan>.dependencies.html` |
+| `--dependencies-direction tb\|lr` | graph layout direction | `tb` |
+| `--gantt-mmd` | mermaid gantt | `<plan>.gantt.mmd` |
+| `--gantt-html` | interactive gantt on dhtmlx: one section per executor, critical path highlighted | `<plan>.gantt.html` |
 
-Граф зависимостей пишется всегда; гант — opt-in, потому что он запускает планировщик: план обязан иметь `start` и полные оценки, при отказе ничего не пишется. Граф мягче: на черновике, который ещё не раскладывается, он предупредит и напишет граф без выделения критического пути — диаграмма полезна уже на ранних черновиках.
+The dependency graph always writes; the gantt is opt-in, because it runs the scheduler: the plan must have `start` and full estimates, and a refusal writes nothing. The graph is softer: on a draft that does not schedule yet it warns and writes the graph unmarked — the diagram is useful on early drafts already.
 
-Любой флаг, названный без имени файла, берёт путь по умолчанию — рядом с планом.
+Any flag named without a file takes its default — beside the plan.
 
-### `validate` и `emit-schema`
+### `validate` and `emit-schema`
 
 ```bash
-planning-dsl validate plan.yaml   # проверка: схема, DAG, словарь ролей, имена, потолок оценки
-planning-dsl emit-schema          # JSON Schema плана — для редакторов и интеграций
+planning-dsl validate plan.yaml   # schema, DAG, role vocabulary, naming, the estimate ceiling
+planning-dsl emit-schema          # the JSON Schema of plan.yaml — for editors and integrations
 ```
 
-## Что именно вычисляет планировщик
+## What the scheduler computes
 
-Детерминированный слой над файлом; референс семантики — TaskJuggler.
+A deterministic layer over the file; TaskJuggler's semantics are the reference model.
 
-- Дата старта задачи — из готовности зависимостей, рабочего календаря и доступности исполнителя.
-- Исполнители подбираются по ролям: человек — по `availability` и `role-weights`, агент — по `concurrency`.
-- Спор за перегруженного исполнителя решается по самому длинному нисходящему пути — дальше всего от конца цепочки; при равенстве — по порядку объявления.
-- Критический путь, `plan-end`, опоздание до `deadline` и поздний старт — считается и отдаётся в артефакте.
+- A task's start date comes from dependency readiness, the working calendar and executor availability.
+- Executors are matched by role: humans by `availability` and `role-weights`, agents by `concurrency`.
+- Capacity contention goes to the longest downstream path first — the task with more work hanging off it outranks the rest; declaration order is the stable final tie.
+- The critical path, `plan-end`, slippage against `deadline`, and latest start are computed and reported in the artifact.
 
-## Правила формата — коротко
+## The format's rules in brief
 
-- Имена задач, исполнителей и ролей — слаги: строчные латинские или кириллические буквы (`ё` включена), цифры, дефисы-разделители, один алфавит в имени — `план-задач`, не `Plan Out The Tasks`. Проза — в `description:`.
-- Роли — декларативный словарь; `role:` обязан совпасть посимвольно, `Dev` — не `dev`.
-- Оценка — одно число человеко-часов. Задача больше 160 ч (рабочий месяц) не оценивается честно — валидатор отказывает и просит декомпозицию. Задачи `done` от потолка освобождены.
-- Статусы `todo | in-progress | blocked | done` в норме ведёт трекер-синк, не рука: структура течёт в трекер, статус — обратно.
-- Все даты — только на уровне плана (`start`, `deadline`, оба необязательны). Дат у задач нет: их выдаёт планировщик.
+- Task, executor and role names are slugs: lowercase Latin or Cyrillic letters (`ё` included), digits, hyphens as separators, one script per name — `plan-out-the-tasks`, not `Plan Out The Tasks`. Prose goes in `description:`.
+- Roles are a declared vocabulary; a `role:` must match exactly — `Dev` is not `dev`.
+- One estimate per task, in person-hours. A task over 160 hours (a working month) cannot be estimated honestly — the validator refuses it and asks for decomposition. `done` tasks are exempt.
+- Statuses `todo | in-progress | blocked | done` are normally written by tracker sync, not by hand: structure flows out to the tracker, status flows back.
+- All dates live at plan level (`start`, `deadline` — both optional). Tasks carry no dates: the scheduler hands them out.
 
-## Живой пример: ремонт дома
+## A worked example: a house renovation
 
-Демо-план — ремонт интерьера двухэтажного дома: шестидневка, десять праздничных дней, три исполнителя, кириллические имена задач.
+The demo plan is a two-story house interior renovation: a six-day work week, ten holiday days, three executors, Cyrillic task names.
 
 ```bash
 planning-dsl render research/house-renovation-demo/house-renovation.yaml --dependencies-html --gantt-html
 ```
 
-Готовые рендеры лежат рядом с планом: [гант](research/house-renovation-demo/house-renovation.gantt.html), [граф](research/house-renovation-demo/house-renovation.html), [расписание](research/house-renovation-demo/house-renovation-schedule.yaml). Там же — примеры отказов валидатора (`broken.yaml`, `unestimated.yaml`, `no-executor.yaml`) с выводом.
+Ready renders sit beside the plan: [the gantt](research/house-renovation-demo/house-renovation.gantt.html), [the graph](research/house-renovation-demo/house-renovation.html), [the schedule](research/house-renovation-demo/house-renovation-schedule.yaml). Next to them — validator refusal examples with their output (`broken.yaml`, `unestimated.yaml`, `no-executor.yaml`).
 
-## Планирование разговором
+## Planning by conversation
 
-Скилл [`.agents/skills/author-plan/`](.agents/skills/author-plan/SKILL.md) — для LLM-сессии, которая ведёт интервью: рамки и сроки, роли, декомпозиция, оценки, календарь и исполнители — и пишет валидный `plan.yaml`. Человек отвечает на вопросы с готовыми вариантами и правит предложения; агент — инструмент, ускоряющий автора, а не автор плана.
+The [`.agents/skills/author-plan/`](.agents/skills/author-plan/SKILL.md) skill is for an LLM session that interviews you — scope and dates, roles, decomposition, estimates, calendar and executors — and emits a valid `plan.yaml`. Questions come with recommended options; you confirm or correct. The agent is a tool amplifying the author, not the author.
 
-## Нейтральность к методологии
+## The Theory of Constraints connection
 
-Формат не знает waterfall и agile — это паттерны использования поверх одной схемы. Единственное встроенное правило разрешения конфликтов мощности (самый длинный нисходящий путь первым) родственно критической цепи CCPM и столь же нейтрально ко всему остальному.
+The format is methodology-neutral, and TOC is one usage pattern over it — but the kinship is real and worth naming:
 
-## Статус
+- **Contention goes to the longest downstream path.** When tasks compete for one executor's capacity, the task with more work hanging off it goes first — the same protective choice critical-chain scheduling (CCPM) makes: the chain that decides the plan's end outranks everything else. The rule stays explainable to a human team in one sentence: "your longest chain goes first."
+- **The artifact already carries the quantities TOC watches.** `plan-end` against `deadline` (slippage is what a project buffer would absorb), `latest-start` (how long the chain can wait before the deadline is at risk), and the critical path (where the constraint lives) are computed on every run.
+- **Buffers and bottleneck reports are the natural next layer.** Feeding buffers, bottleneck load, buffer consumption — these are derived reports over the same schedule artifact, not new formats. On the roadmap, not built yet.
 
-v0.1.0. Есть: валидатор, детерминированный планировщик, mermaid-граф и mermaid-гант, офлайн HTML-граф и HTML-гант, экспорт расписания в CSV/TSV, JSON Schema. На подходе: трекер-синк (Jira/Linear — структура туда, статус обратно), диапазонные оценки (PERT).
+## Status
 
-## Документация
+v0.1.0. Present: validator, deterministic scheduler, mermaid graph and mermaid gantt, offline HTML graph and HTML gantt, CSV/TSV schedule export, JSON Schema. Next: tracker sync (Jira/Linear — structure out, status back), range estimates (PERT), TOC-flavored derived reports (buffers, bottleneck load).
 
-- [`specs/plan-format.md`](specs/plan-format.md) — авторитетный справочник формата, с каноническим примером.
-- [`specs/scheduler.md`](specs/scheduler.md) — устройство планировщика и правила раскладки.
-- [`decisions/`](decisions/) — почему формат такой: каждое решение с отвергнутыми альтернативами.
+## Documentation
 
-## Лицензия
+- [`specs/plan-format.md`](specs/plan-format.md) — the authoritative format reference, with the canonical example.
+- [`specs/scheduler.md`](specs/scheduler.md) — the scheduler's design and dispatch rules.
+- [`decisions/`](decisions/) — why the format is what it is: every decision with its rejected alternatives.
+
+## License
 
 [MIT](LICENSE).
