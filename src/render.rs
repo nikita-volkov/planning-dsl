@@ -391,7 +391,9 @@ pub enum Direction {
 /// draws and interacts —
 /// pan, wheel zoom, fit on load, hover highlight (1-hop by default, the
 /// transitive downstream on Shift via `successors()`), click-to-pin detail
-/// card, status colours, done muting, class-picked arrowheads, corner
+/// card, node dragging — the edges re-interpolate off the same data and the
+/// arrangement is the viewer's local adjustment, never persisted —
+/// status colours, done muting, class-picked arrowheads, corner
 /// legend. The artifact opens offline; the accepted cost is ~2 MB of
 /// embedded bundles.
 ///
@@ -588,9 +590,10 @@ self-contained and opens offline. -->
 /// layered layout along the printed direction, applies its node positions
 /// and maps its edge sections onto cytoscape's `segments` curve style, and
 /// wires the interactions: the hover glance (1-hop), the Shift transitive
-/// downstream (`successors()`), the click-to-pin card, the corner legend,
-/// fit on load, double-click and resize re-fit. Pan and wheel zoom are
-/// cytoscape's own.
+/// downstream (`successors()`), the click-to-pin card, node dragging (the
+/// edges follow; the arrangement is the viewer's local adjustment), the
+/// corner legend, fit on load, double-click and resize re-fit. Pan and wheel
+/// zoom are cytoscape's own.
 const HTML_TAIL: &str = r#"<script>
 (function () {
   var DATA = JSON.parse(document.getElementById('graph-data').textContent);
@@ -693,8 +696,12 @@ const HTML_TAIL: &str = r#"<script>
   var cy = window.cytoscape({
     container: document.getElementById('cy'),
     elements: elements,
-    // A read-only view: the positions are ELK's, nothing grabs a node.
-    autoungrabify: true,
+    // The nodes are grabbable: ELK's arrangement is the starting point, and
+    // dragging a box is the viewer's local adjustment. The edges ride the
+    // same weights and distances — with `edge-distances: node-position` the
+    // segment points interpolate between the node centers, so a dragged box
+    // drags its edges along. Nothing is persisted: a re-render lays ELK's
+    // arrangement out again.
     // The nodes carry no positions yet — ELK delivers them below; preset
     // keeps cytoscape from scattering them in the meantime, and the glue
     // fits once the layout has landed.
